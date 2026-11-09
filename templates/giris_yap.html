@@ -13,9 +13,11 @@
   <form method="post" class="giris-kutu">
     <img src="{{ url_for('static', filename='logo.svg') }}" alt="Halim logosu" width="96" height="96">
     <h1>Halim</h1>
-    <p class="aciklama">Halde her hesabın yanında. Devam etmek için şifreni yaz.</p>
+    <p class="aciklama">Halde her hesabın yanında. Devam etmek için giriş yap.</p>
+    {% for tur, mesaj in get_flashed_messages(with_categories=true) %}<div class="bildirim {{ tur }}" role="alert">{{ mesaj }}</div>{% endfor %}
     {% if hata %}<div class="bildirim hata" role="alert">{{ hata }}</div>{% endif %}
-    <label>Şifre<input type="password" name="sifre" autocomplete="current-password" required autofocus></label>
+    <label>Kullanıcı adı<input name="kullanici" autocomplete="username" autocapitalize="none" required autofocus></label>
+    <label>Şifre<input type="password" name="sifre" autocomplete="current-password" required></label>
     <button class="ana-dugme">Giriş yap</button>
   </form>
 </main>

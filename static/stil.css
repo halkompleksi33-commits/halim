@@ -151,3 +151,5 @@ button.satir-sil{background:#fff;color:var(--kirmizi);border:1px solid var(--ciz
 .efatura{border:1px solid #7cc596;border-radius:12px;padding:6px 18px 14px;margin-top:16px;max-width:680px}
 .efatura dl{display:grid;grid-template-columns:110px 1fr;gap:6px;margin:0}.efatura dt{color:var(--soluk)}.efatura dd{margin:0;font-weight:600;overflow-wrap:anywhere}
 .satir form button .ikon-kutu{width:24px;height:24px;padding:2px;border-radius:6px;background:none;vertical-align:middle;margin-right:5px}
+.admin-not{white-space:pre-wrap;overflow-wrap:anywhere}
+.kart b.kart-yazi{font-size:18px;white-space:normal}

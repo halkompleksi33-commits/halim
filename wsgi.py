@@ -10,6 +10,6 @@ if hasattr(time, "tzset"):
 import veritabani as vt  # noqa: E402
 from app import app  # noqa: E402
 
-vt.hazirla()
+vt.hazirla_hepsi(os.environ.get("APP_SIFRE"))
 
 __all__ = ["app"]

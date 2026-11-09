@@ -7,6 +7,8 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from werkzeug.security import generate_password_hash
+
 PROJE = Path(__file__).resolve().parent
 
 
@@ -28,8 +30,19 @@ def yedek_klasoru():
     return yol
 
 
-def dosya_yolu():
-    return veri_klasoru() / "hal.db"
+_SEMA = re.compile(r"(public|yonetim|h_\d+)")
+
+
+def _sema_kontrol(sema):
+    sema = sema or "public"
+    if not _SEMA.fullmatch(sema):
+        raise ValueError("Gecersiz bolum adi")
+    return sema
+
+
+def dosya_yolu(sema=None):
+    sema = _sema_kontrol(sema)
+    return veri_klasoru() / ("hal.db" if sema == "public" else f"hal_{sema}.db")
 
 
 def canli_mi():
@@ -81,12 +94,21 @@ class _PgImlec:
 
 
 _ID_TABLOLARI = {"uretici", "musteri", "urun", "giris", "giris_kalem", "masraf", "satis", "satis_kalem",
-                 "tahsilat", "uretici_odeme", "gider", "notlar", "kasa_hareket"}
+                 "tahsilat", "uretici_odeme", "gider", "notlar", "kasa_hareket", "hesap", "odeme"}
 
 
 class _PgBaglanti:
-    def __init__(self, baglanti):
+    """Her islem kendi hesabinin bolumunde calisir, havuzlu baglantida da karismaz."""
+
+    def __init__(self, baglanti, sema):
         self._b = baglanti
+        self._sema = sema
+        self._hazir = False
+
+    def _bolume_gec(self):
+        if not self._hazir:
+            self._b.cursor().execute(f'SET LOCAL search_path TO "{self._sema}"')
+            self._hazir = True
 
     @staticmethod
     def _cevir(sql):
@@ -98,6 +120,7 @@ class _PgBaglanti:
         donuslu = bool(m and m.group(1) in _ID_TABLOLARI)
         if donuslu:
             metin += " RETURNING id"
+        self._bolume_gec()
         imlec = self._b.cursor()
         imlec.execute(metin, tuple(args))
         if donuslu:
@@ -107,19 +130,23 @@ class _PgBaglanti:
     def executemany(self, sql, satirlar):
         satirlar = [tuple(s) for s in satirlar]
         if satirlar:
+            self._bolume_gec()
             self._b.cursor().executemany(self._cevir(sql), satirlar)
 
     def commit(self):
         self._b.commit()
+        self._hazir = False
 
     def rollback(self):
         self._b.rollback()
+        self._hazir = False
 
     def close(self):
         self._b.close()
 
 
-def baglan():
+def baglan(sema=None):
+    sema = _sema_kontrol(sema)
     if canli_mi():
         import psycopg
         # Havuzlu baglantida hazir sorgu onbellegi hata verir, kapali tutulur.
@@ -129,8 +156,8 @@ def baglan():
         except psycopg.OperationalError:
             time.sleep(1)
             baglanti = psycopg.connect(os.environ["DATABASE_URL"], prepare_threshold=None, connect_timeout=20)
-        return _PgBaglanti(baglanti)
-    db = sqlite3.connect(dosya_yolu())
+        return _PgBaglanti(baglanti, sema)
+    db = sqlite3.connect(dosya_yolu(sema))
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys = ON")
     return db
@@ -294,10 +321,68 @@ EK_SUTUNLAR = [
 ]
 
 
-def hazirla():
-    db = baglan()
+YONETIM_TABLOLARI = """
+CREATE TABLE IF NOT EXISTS hesap(
+  id INTEGER PRIMARY KEY, isletme TEXT NOT NULL, yetkili TEXT NOT NULL DEFAULT '', telefon TEXT NOT NULL DEFAULT '',
+  kullanici TEXT NOT NULL UNIQUE, sifre_ozet TEXT NOT NULL, sema TEXT NOT NULL DEFAULT 'public',
+  durum TEXT NOT NULL DEFAULT 'acik' CHECK(durum IN ('acik','kapali')), bitis TEXT NOT NULL,
+  acilis TEXT NOT NULL, notlar TEXT NOT NULL DEFAULT '');
+
+CREATE TABLE IF NOT EXISTS odeme(
+  id INTEGER PRIMARY KEY, hesap_id INTEGER NOT NULL REFERENCES hesap(id), tarih TEXT NOT NULL,
+  kurus INTEGER NOT NULL, sekil TEXT NOT NULL, ay INTEGER NOT NULL, notlar TEXT NOT NULL DEFAULT '',
+  iptal INTEGER NOT NULL DEFAULT 0);
+
+CREATE INDEX IF NOT EXISTS ix_odeme_hesap ON odeme(hesap_id);
+"""
+
+
+def _pg_sema(metin):
+    return metin.replace("id INTEGER PRIMARY KEY", "id BIGSERIAL PRIMARY KEY").replace(" INTEGER", " BIGINT")
+
+
+def yonetim_hazirla():
+    db = baglan("yonetim")
     try:
         if canli_mi():
+            db.execute("CREATE SCHEMA IF NOT EXISTS yonetim")
+            for komut in _pg_sema(YONETIM_TABLOLARI).split(";"):
+                if komut.strip():
+                    db.execute(komut)
+        else:
+            db.executescript(YONETIM_TABLOLARI)
+        db.commit()
+    finally:
+        db.close()
+
+
+def hazirla_hepsi(ilk_sifre=None):
+    """Yonetim bolumunu ve butun hesaplarin bolumlerini gunceller."""
+    yonetim_hazirla()
+    y = baglan("yonetim")
+    try:
+        if ilk_sifre and not y.execute("SELECT COUNT(*) FROM hesap").fetchone()[0]:
+            y.execute(
+                "INSERT INTO hesap(isletme,kullanici,sifre_ozet,sema,bitis,acilis) VALUES(?,?,?,?,?,?)",
+                ("Halim ilk hesap", "halim", generate_password_hash(ilk_sifre, method="pbkdf2:sha256:600000"), "public",
+                 "2099-12-31", date.today().isoformat()))
+            y.commit()
+        semalar = [r[0] for r in y.execute("SELECT sema FROM hesap").fetchall()]
+    finally:
+        y.close()
+    hazirla()
+    for sema in semalar:
+        if sema != "public":
+            hazirla(sema)
+
+
+def hazirla(hedef=None):
+    hedef = _sema_kontrol(hedef)
+    db = baglan(hedef)
+    try:
+        if canli_mi():
+            if hedef != "public":
+                db.execute(f'CREATE SCHEMA IF NOT EXISTS "{hedef}"')
             sema = TABLOLAR.replace("id INTEGER PRIMARY KEY", "id BIGSERIAL PRIMARY KEY").replace(" INTEGER", " BIGINT")
             for komut in sema.split(";"):
                 if komut.strip():

@@ -14,6 +14,7 @@ os.environ["HAL_YEDEK_KLASORU"] = str(Path(_gecici.name) / "yedek")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from openpyxl import Workbook, load_workbook  # noqa: E402
+from werkzeug.security import generate_password_hash  # noqa: E402
 
 import app as uygulama  # noqa: E402
 import hesap as h  # noqa: E402
@@ -80,9 +81,11 @@ class AkisTest(unittest.TestCase):
         uygulama.app.config["TESTING"] = False
         cls.c = uygulama.app.test_client()
         if uygulama.CANLI:
-            uygulama.SIFRE, uygulama.CANLI_ADRES = "deneme", "localhost"
+            uygulama.CANLI_ADRES = "localhost"
             uygulama.app.config["SESSION_COOKIE_SECURE"] = False
-            cls.c.post("/giris-yap", data={"sifre": "deneme"})
+            yonetim_temizle()
+            vt.hazirla_hepsi("deneme-programi")
+            cls.c.post("/giris-yap", data={"kullanici": "halim", "sifre": "deneme-programi"})
 
     def setUp(self):
         d = vt.baglan()
@@ -424,17 +427,202 @@ class AkisTest(unittest.TestCase):
         d.close()
 
 
-class GirisTest(unittest.TestCase):
+def yonetim_temizle():
+    vt.yonetim_hazirla()
+    d = vt.baglan("yonetim")
+    d.execute("DELETE FROM odeme")
+    d.execute("DELETE FROM hesap")
+    d.commit()
+    d.close()
+    uygulama._hesap_onbellek.clear()
+    uygulama._denemeler.clear()
+
+
+class AdminTest(unittest.TestCase):
     def setUp(self):
         vt.hazirla()
-        self.eski = (uygulama.CANLI, uygulama.SIFRE)
-        uygulama.CANLI, uygulama.SIFRE = True, "dogru-sifre"
-        uygulama._denemeler.clear()
+        yonetim_temizle()
+        self.eski = (uygulama.CANLI, uygulama.ADMIN_OZET, uygulama.CANLI_ADRES)
+        uygulama.CANLI, uygulama.CANLI_ADRES = True, ""
+        uygulama.ADMIN_OZET = generate_password_hash("deneme-yonetici", method="pbkdf2:sha256:1000")
         uygulama.app.config["SESSION_COOKIE_SECURE"] = False
         self.c = uygulama.app.test_client()
 
     def tearDown(self):
-        uygulama.CANLI, uygulama.SIFRE = self.eski
+        uygulama.CANLI, uygulama.ADMIN_OZET, uygulama.CANLI_ADRES = self.eski
+        uygulama._denemeler.clear()
+
+    def admin(self):
+        self.c.post("/admin", data={"sifre": "deneme-yonetici"})
+
+    def hesap_ac(self, kullanici, sifre="sifre-12345", isletme=None, bitis=None):
+        cevap = self.c.post("/admin/hesap/yeni", data={
+            "isletme": isletme or kullanici.title(), "kullanici": kullanici, "sifre": sifre,
+            "bitis": bitis or (date.today() + timedelta(days=30)).isoformat()}, follow_redirects=True)
+        self.assertEqual(cevap.status_code, 200)
+        d = vt.baglan("yonetim")
+        r = d.execute("SELECT * FROM hesap WHERE kullanici=?", (kullanici,)).fetchone()
+        d.close()
+        return r
+
+    def kullanici(self, ad, sifre="sifre-12345"):
+        c = uygulama.app.test_client()
+        return c, c.post("/giris-yap", data={"kullanici": ad, "sifre": sifre})
+
+    def test_program_girisi_gerekmeden_acilir(self):
+        cevap = self.c.get("/admin")
+        self.assertEqual(cevap.status_code, 200)
+        self.assertIn("Yönetici şifresi", cevap.get_data(as_text=True))
+
+    def test_yanlis_ve_dogru_sifre(self):
+        self.assertEqual(self.c.post("/admin", data={"sifre": "yanlis"}).status_code, 401)
+        self.assertNotIn("Toplam hesap", self.c.get("/admin").get_data(as_text=True))
+        self.assertEqual(self.c.post("/admin", data={"sifre": "deneme-yonetici"}).status_code, 302)
+        self.assertIn("Toplam hesap", self.c.get("/admin").get_data(as_text=True))
+        self.c.post("/admin/cikis")
+        self.assertNotIn("Toplam hesap", self.c.get("/admin").get_data(as_text=True))
+
+    def test_admin_olmadan_islem_yapilamaz(self):
+        self.admin()
+        r = self.hesap_ac("birinci")
+        c = uygulama.app.test_client()
+        for yol in (f"/admin/hesap/{r['id']}", "/admin/hesap/yeni"):
+            self.assertEqual(c.get(yol).status_code, 302, yol)
+        for yol in (f"/admin/hesap/{r['id']}/durum", f"/admin/hesap/{r['id']}/odeme", f"/admin/hesap/{r['id']}/duzenle"):
+            self.assertEqual(c.post(yol).status_code, 302, yol)
+        d = vt.baglan("yonetim")
+        self.assertEqual(d.execute("SELECT durum FROM hesap WHERE id=?", (r["id"],)).fetchone()[0], "acik")
+        d.close()
+        k, _ = self.kullanici("birinci")
+        self.assertEqual(k.get(f"/admin/hesap/{r['id']}").status_code, 302)
+
+    def test_admin_programa_girdirmez(self):
+        self.admin()
+        for yol in ("/", "/musteriler", "/yedek/excel"):
+            self.assertEqual(self.c.get(yol).status_code, 302, yol)
+
+    def test_hesaplar_birbirini_gormez(self):
+        self.admin()
+        ra, rb = self.hesap_ac("birinci", isletme="Birinci Ticaret"), self.hesap_ac("ikinci", isletme="İkinci Ticaret")
+        self.assertNotEqual(ra["sema"], rb["sema"])
+        a_, _ = self.kullanici("birinci")
+        b_, _ = self.kullanici("ikinci")
+        a_.post("/musteri/yeni", data={"ad": "Gizli Musteri A", "vade_gun": "10", "acilis": "500"})
+        a_.post("/urunler", data={"ad": "Ozel Urun A", "birim": "kg"})
+        a_.post("/notlar", data={"metin": "A notu"})
+        a_.post("/kasa/tahsilat", data={"tarih": BUGUN, "sekil": "Nakit", "kim_tur": "diger", "kim_ad": "Ozel Kisi A", "tutar": "99"})
+        self.assertIn("Gizli Musteri A", a_.get("/musteriler").get_data(as_text=True))
+        for yol in ("/musteriler", "/urunler", "/kasa"):
+            self.assertNotIn("Gizli Musteri A", b_.get(yol).get_data(as_text=True))
+        self.assertIn("Ozel Urun A", a_.get("/urunler").get_data(as_text=True))
+        self.assertNotIn("Ozel Urun A", b_.get("/urunler").get_data(as_text=True))
+        self.assertEqual(b_.get("/notlar").get_json(), [])
+        self.assertIn("Ozel Kisi A", a_.get("/kasa").get_data(as_text=True))
+        self.assertNotIn("Ozel Kisi A", b_.get("/kasa").get_data(as_text=True))
+        self.assertEqual(b_.get("/musteri/1").status_code, 404)
+        self.assertIn("Birinci Ticaret", a_.get("/").get_data(as_text=True))
+        self.assertIn("İkinci Ticaret", b_.get("/").get_data(as_text=True))
+        paneli = self.c.get("/admin").get_data(as_text=True)
+        self.assertIn("A notu", paneli)
+        self.assertNotIn("Gizli Musteri A", paneli)
+
+    def test_hesap_kapatma_ve_acma(self):
+        self.admin()
+        r = self.hesap_ac("birinci")
+        k, cevap = self.kullanici("birinci")
+        self.assertEqual(cevap.status_code, 302)
+        self.assertEqual(k.get("/").status_code, 200)
+        self.c.post(f"/admin/hesap/{r['id']}/durum")
+        self.assertEqual(k.get("/").status_code, 302)
+        k2, cevap = self.kullanici("birinci")
+        self.assertIn("kapalı", cevap.get_data(as_text=True))
+        self.assertEqual(k2.get("/").status_code, 302)
+        self.c.post(f"/admin/hesap/{r['id']}/durum")
+        k3, _ = self.kullanici("birinci")
+        self.assertEqual(k3.get("/").status_code, 200)
+
+    def test_odeme_suresi_uzatir_ve_iptal_geri_alir(self):
+        self.admin()
+        bitis = date.today() + timedelta(days=10)
+        r = self.hesap_ac("birinci", bitis=bitis.isoformat())
+        veri = {"tarih": BUGUN, "tutar": "500", "sekil": "Havale", "ay": "3", "notlar": ""}
+        self.assertEqual(self.c.post(f"/admin/hesap/{r['id']}/odeme", data=veri).status_code, 302)
+        d = vt.baglan("yonetim")
+        beklenen = h.ay_ekle(bitis, 3).isoformat()
+        self.assertEqual(d.execute("SELECT bitis FROM hesap WHERE id=?", (r["id"],)).fetchone()[0], beklenen)
+        o = d.execute("SELECT * FROM odeme").fetchone()
+        self.assertEqual((o["kurus"], o["ay"]), (50000, 3))
+        d.close()
+        self.assertIn("500,00", self.c.get("/admin").get_data(as_text=True))
+        self.c.post(f"/admin/hesap/{r['id']}/odeme/{o['id']}/iptal")
+        d = vt.baglan("yonetim")
+        self.assertEqual(d.execute("SELECT bitis FROM hesap WHERE id=?", (r["id"],)).fetchone()[0], h.ay_ekle(h.ay_ekle(bitis, 3), -3).isoformat())
+        d.close()
+
+    def test_suresi_gecen_hesap_calisir_ama_uyarilir(self):
+        self.admin()
+        self.hesap_ac("birinci", bitis=(date.today() - timedelta(days=3)).isoformat())
+        k, _ = self.kullanici("birinci")
+        cevap = k.get("/")
+        self.assertEqual(cevap.status_code, 200)
+        self.assertIn("Ödeme süren", cevap.get_data(as_text=True))
+
+    def test_gecersiz_hesap_bilgisi(self):
+        self.admin()
+        self.hesap_ac("birinci")
+        temel = {"isletme": "X", "sifre": "sifre-12345", "bitis": BUGUN}
+        self.assertIn("zaten var", self.c.post("/admin/hesap/yeni", data={**temel, "kullanici": "BIRINCI"}, follow_redirects=True).get_data(as_text=True))
+        self.assertIn("Türkçe", self.c.post("/admin/hesap/yeni", data={**temel, "kullanici": "şş"}, follow_redirects=True).get_data(as_text=True))
+        self.assertIn("en az 8", self.c.post("/admin/hesap/yeni", data={**temel, "kullanici": "ucuncu", "sifre": "kisa"}, follow_redirects=True).get_data(as_text=True))
+        d = vt.baglan("yonetim")
+        self.assertEqual(d.execute("SELECT COUNT(*) FROM hesap").fetchone()[0], 1)
+        d.close()
+
+    def test_sifre_degistirme(self):
+        self.admin()
+        r = self.hesap_ac("birinci")
+        self.c.post(f"/admin/hesap/{r['id']}/duzenle", data={"isletme": "Yeni Ad", "bitis": BUGUN, "sifre": "yepyeni-sifre"})
+        self.assertEqual(self.kullanici("birinci")[1].status_code, 401)
+        self.assertEqual(self.kullanici("birinci", "yepyeni-sifre")[1].status_code, 302)
+
+    def test_ilk_hesap_mevcut_kayitlari_kullanir(self):
+        vt.hazirla_hepsi("eski-program-sifresi")
+        d = vt.baglan("yonetim")
+        r = d.execute("SELECT * FROM hesap WHERE kullanici='halim'").fetchone()
+        d.close()
+        self.assertEqual(r["sema"], "public")
+        vt.hazirla_hepsi("baska-sifre")
+        k, cevap = self.kullanici("halim", "eski-program-sifresi")
+        self.assertEqual(cevap.status_code, 302)
+
+    def test_cok_deneme_kilitler(self):
+        for _ in range(5):
+            self.c.post("/admin", data={"sifre": "yanlis"})
+        self.assertIn("5 dakika", self.c.post("/admin", data={"sifre": "deneme-yonetici"}).get_data(as_text=True))
+        self.assertNotIn("Toplam hesap", self.c.get("/admin").get_data(as_text=True))
+
+    def test_baska_siteden_giris_engellenir(self):
+        c = self.c.post("/admin", data={"sifre": "deneme-yonetici"}, headers={"Origin": "http://kotu.example"})
+        self.assertEqual(c.status_code, 403)
+
+    def test_gecersiz_bolum_adi_reddedilir(self):
+        for kotu in ("h_1;drop", "../x", "pg_catalog"):
+            with self.assertRaises(ValueError):
+                vt.baglan(kotu)
+
+
+class GirisTest(unittest.TestCase):
+    def setUp(self):
+        vt.hazirla()
+        yonetim_temizle()
+        vt.hazirla_hepsi("dogru-sifre")
+        self.eski = uygulama.CANLI
+        uygulama.CANLI = True
+        uygulama.app.config["SESSION_COOKIE_SECURE"] = False
+        self.c = uygulama.app.test_client()
+
+    def tearDown(self):
+        uygulama.CANLI = self.eski
         uygulama._denemeler.clear()
 
     def test_sifresiz_sayfa_acilmaz(self):
@@ -450,9 +638,9 @@ class GirisTest(unittest.TestCase):
         self.assertEqual(self.c.get("/static/logo.svg").status_code, 200)
 
     def test_yanlis_ve_dogru_sifre(self):
-        self.assertEqual(self.c.post("/giris-yap", data={"sifre": "yanlis"}).status_code, 401)
+        self.assertEqual(self.c.post("/giris-yap", data={"kullanici": "halim", "sifre": "yanlis"}).status_code, 401)
         self.assertEqual(self.c.get("/").status_code, 302)
-        self.assertEqual(self.c.post("/giris-yap", data={"sifre": "dogru-sifre"}).status_code, 302)
+        self.assertEqual(self.c.post("/giris-yap", data={"kullanici": "halim", "sifre": "dogru-sifre"}).status_code, 302)
         cevap = self.c.get("/")
         self.assertEqual(cevap.status_code, 200)
         self.assertIn("Çıkış yap", cevap.get_data(as_text=True))
@@ -462,7 +650,7 @@ class GirisTest(unittest.TestCase):
     def test_masaustu_kurulumu(self):
         self.assertIn(b"fetch", self.c.get("/sw.js").data)
         self.assertEqual(self.c.get("/kisayol.url").status_code, 302)
-        self.c.post("/giris-yap", data={"sifre": "dogru-sifre"})
+        self.c.post("/giris-yap", data={"kullanici": "halim", "sifre": "dogru-sifre"})
         sayfa = self.c.get("/").get_data(as_text=True)
         self.assertIn('id="masaustu"', sayfa)
         self.assertIn('rel="manifest"', sayfa)
@@ -486,14 +674,13 @@ class GirisTest(unittest.TestCase):
 
     def test_cok_deneme_kilitler(self):
         for _ in range(5):
-            self.c.post("/giris-yap", data={"sifre": "yanlis"})
-        cevap = self.c.post("/giris-yap", data={"sifre": "dogru-sifre"})
+            self.c.post("/giris-yap", data={"kullanici": "halim", "sifre": "yanlis"})
+        cevap = self.c.post("/giris-yap", data={"kullanici": "halim", "sifre": "dogru-sifre"})
         self.assertIn("5 dakika", cevap.get_data(as_text=True))
         self.assertEqual(self.c.get("/").status_code, 302)
 
-    def test_sifre_ayarsizsa_kimse_giremez(self):
-        uygulama.SIFRE = ""
-        self.assertEqual(self.c.post("/giris-yap", data={"sifre": ""}).status_code, 401)
+    def test_olmayan_kullanici_giremez(self):
+        self.assertEqual(self.c.post("/giris-yap", data={"kullanici": "yok", "sifre": "dogru-sifre"}).status_code, 401)
         self.assertEqual(self.c.get("/").status_code, 302)
 
 

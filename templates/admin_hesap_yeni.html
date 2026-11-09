@@ -1,0 +1,15 @@
+{% extends "admin_temel.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon('dukkan','mavi') }}<h1>Yeni hesap</h1><p class="aciklama">Yeni bir işletme aç. Kayıtları diğer hesaplardan tamamen ayrı tutulur.</p></div>
+<form method="post" class="form"><div class="alanlar">
+<label>İşletme adı<input name="isletme" required><small>Programda ve panelde görünen ad.</small></label>
+<label>Yetkili kişi<input name="yetkili"></label>
+<label>Telefon<input name="telefon"></label>
+<label>Kullanıcı adı<input name="kullanici" required autocomplete="off" pattern="[A-Za-z0-9._\-]{3,30}"><small>Harf, rakam, nokta ve tire. Türkçe harf olmaz.</small></label>
+<label>Şifre<input type="password" name="sifre" required minlength="8" autocomplete="new-password"><small>En az 8 harf. İşletmeye sen ileteceksin.</small></label>
+<label>Ödeme bitiş tarihi<input type="date" name="bitis" value="{{ varsayilan_bitis }}" required><small>Bu tarihten sonra uyarı çıkar.</small></label>
+</div>
+<label>Not<input name="notlar"></label>
+<button class="ana-dugme">Hesabı aç</button></form>
+<p><a href="{{ url_for('admin_giris') }}">Panele dön</a></p>
+{% endblock %}

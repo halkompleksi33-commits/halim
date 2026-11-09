@@ -1,0 +1,43 @@
+{% extends "admin_temel.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon('dukkan','mavi') }}<h1>{{ h.isletme }} <small>{{ h.kullanici }}</small></h1><p class="aciklama">Bu hesabın durumu, ödemeleri ve şifresi.</p></div>
+<div class="satir"><a class="dugme ikincil" href="{{ url_for('admin_giris') }}">Panele dön</a>
+<form method="post" action="{{ url_for('admin_hesap_durum', hid=h.id) }}" data-onay="{{ 'Bu hesap kapatılsın mı? Kullanıcı hemen programdan çıkarılır, kayıtlar silinmez.' if h.durum == 'acik' else 'Bu hesap açılsın mı?' }}"><button class="{{ 'tehlike' if h.durum == 'acik' }}">{{ 'Hesabı kapat' if h.durum == 'acik' else 'Hesabı aç' }}</button></form></div></div>
+
+<div class="kartlar">
+  <div class="kart {{ 'vurgu' if h.durum == 'acik' }}">{{ ikon('tik' if h.durum == 'acik' else 'atla', 'yesil' if h.durum == 'acik' else 'gri') }}<span>Durum</span><b>{{ 'Açık' if h.durum == 'acik' else 'Kapalı' }}</b><small>Kapalı hesap programa giremez.</small></div>
+  <div class="kart">{{ ikon('takvim','mor') }}<span>Ödeme bitişi</span><b class="{{ 'kirmizi' if h.kalan < 0 }}">{{ h.bitis|tarih }}</b><small>{% if h.kalan < 0 %}{{ -h.kalan }} gün geçti.{% else %}{{ h.kalan }} gün kaldı.{% endif %}</small></div>
+  <div class="kart">{{ ikon('telefon','gri') }}<span>İletişim</span><b class="kart-yazi">{{ h.telefon or 'Yok' }}</b><small>{{ h.yetkili or 'Yetkili yazılmamış.' }}</small></div>
+</div>
+
+<div class="iki">
+<section><h2>Ödeme al</h2>
+<form method="post" action="{{ url_for('admin_odeme', hid=h.id) }}" class="form">
+<div class="alanlar">
+<label>Tarih<input type="date" name="tarih" value="{{ bugun }}" required></label>
+<label>Tutar ₺<input name="tutar" inputmode="decimal" required></label>
+<label>Ödeme şekli<select name="sekil"><option>Havale</option><option>Nakit</option><option>Kart</option></select></label>
+<label>Süre uzatma<select name="ay"><option value="1">1 ay</option><option value="3">3 ay</option><option value="6">6 ay</option><option value="12">12 ay</option></select><small>Ödeme bitişine eklenir.</small></label>
+</div>
+<label>Not<input name="notlar"></label>
+<button class="ana-dugme">Ödemeyi işle</button></form></section>
+
+<section><h2>Bilgileri ve şifreyi değiştir</h2>
+<form method="post" action="{{ url_for('admin_hesap_duzenle', hid=h.id) }}" class="form">
+<div class="alanlar">
+<label>İşletme adı<input name="isletme" value="{{ h.isletme }}" required></label>
+<label>Yetkili kişi<input name="yetkili" value="{{ h.yetkili }}"></label>
+<label>Telefon<input name="telefon" value="{{ h.telefon }}"></label>
+<label>Ödeme bitiş tarihi<input type="date" name="bitis" value="{{ h.bitis }}" required></label>
+<label>Yeni şifre<input type="password" name="sifre" minlength="8" autocomplete="new-password"><small>Değişmeyecekse boş bırak.</small></label>
+</div>
+<label>Not<input name="notlar" value="{{ h.notlar }}"></label>
+<button class="ana-dugme">Kaydet</button></form></section>
+</div>
+
+<h2>Ödeme geçmişi</h2>
+{% if odemeler %}<table><thead><tr><th>Tarih</th><th>Şekil</th><th>Süre</th><th>Not</th><th class="sag">Tutar</th><th></th></tr></thead><tbody>
+{% for o in odemeler %}<tr><td>{{ o.tarih|tarih }}</td><td>{{ o.sekil }}</td><td>{{ o.ay }} ay</td><td>{{ o.notlar }}</td><td class="sag">{{ o.kurus|para }} ₺</td>
+<td><form method="post" action="{{ url_for('admin_odeme_iptal', hid=h.id, oid=o.id) }}" data-onay="Bu ödeme iptal edilsin mi? Süre de geri alınır."><button class="kucuk">İptal</button></form></td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Henüz ödeme yok.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Halim Yönetici</title>
+<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='stil.css') }}">
+</head>
+<body>
+<main class="giris-sayfa">
+  <form method="post" class="giris-kutu">
+    <img src="{{ url_for('static', filename='logo.svg') }}" alt="Halim logosu" width="96" height="96">
+    <h1>Yönetici paneli</h1>
+    <p class="aciklama">Devam etmek için yönetici şifresini yaz.</p>
+    {% if hata %}<div class="bildirim hata" role="alert">{{ hata }}</div>{% endif %}
+    <label>Yönetici şifresi<input type="password" name="sifre" autocomplete="off" required autofocus></label>
+    <button class="ana-dugme">Giriş yap</button>
+  </form>
+</main>
+</body>
+</html>

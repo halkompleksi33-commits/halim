@@ -5,6 +5,7 @@ Kurus kaymasi olmasin diye her sey tam sayi tutulur:
   miktar -> binde birim (1 kg = 1000)
   oran   -> onbinde (%8,5 = 850)
 """
+import calendar
 import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -91,6 +92,13 @@ def kdv_ayir(toplam, oran):
     """KDV dahil tutari matrah ve KDV olarak ayirir."""
     matrah = bol(toplam * 10000, 10000 + oran)
     return matrah, toplam - matrah
+
+
+def ay_ekle(t, ay):
+    """Takvim ayi ekler, ay sonu tasarsa son gune ceker."""
+    yil, kalan = divmod(t.year * 12 + t.month - 1 + ay, 12)
+    ay_no = kalan + 1
+    return date(yil, ay_no, min(t.day, calendar.monthrange(yil, ay_no)[1]))
 
 
 def _binlik(n):

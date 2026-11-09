@@ -14,6 +14,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, r
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash, generate_password_hash
 
 import aktarim
 import demo
@@ -41,12 +42,18 @@ CANLI = vt.canli_mi()
 if os.environ.get("RENDER") and not CANLI:
     # Render'in kendi diski yeniden baslayinca silinir, kayit kaybetmektense hic acilmasin.
     raise RuntimeError("DATABASE_URL ayarlanmadan program internette acilamaz.")
-SIFRE = os.environ.get("APP_SIFRE", "")
 CANLI_ADRES = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
 ACIK_SAYFALAR = {"giris_yap", "saglik", "static", "servis_isci"}
+# Kod herkese acik depoda, bu yuzden sifrenin kendisi degil ozeti tutulur.
+# Render'da ADMIN_SIFRE tanimlanirsa o gecerli olur.
+ADMIN_OZET = (generate_password_hash(os.environ["ADMIN_SIFRE"]) if os.environ.get("ADMIN_SIFRE")
+              else "pbkdf2:sha256:600000$n90TsATX05gt4QhB$117002e663c9a118f80a488db96ba9c081ca9d200d82e3dab6642d7d43552ad1")
 EN_FAZLA_DENEME = 5
 KILIT_SURESI = 300
 _denemeler = {}
+_hesap_onbellek = {}
+HESAP_ONBELLEK_SURESI = 60
+BOS_OZET = generate_password_hash("kullanilmayan-deger", method="pbkdf2:sha256:600000")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("HAL_GIZLI") or os.urandom(32)
@@ -55,6 +62,7 @@ if CANLI:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
     app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                       PERMANENT_SESSION_LIFETIME=timedelta(days=30))
+app.jinja_env.globals["ikon"] = gorsel.ikon
 app.jinja_env.filters.update(para=h.para, miktar=h.miktar, oran=h.oran, tarih=h.tarih_yaz)
 
 TAHSILAT_SEKILLERI = ["Nakit", "Havale", "Çek", "Senet", "Kart"]
@@ -64,16 +72,61 @@ BIRIMLER = ["kg", "adet", "bağ", "kasa", "çuval"]
 
 
 def db():
+    """Oturumdaki hesabin kendi bolumune baglanir, hesap yoksa internette acmaz."""
     if "db" not in g:
-        g.db = vt.baglan()
+        hesap = g.get("hesap")
+        if CANLI and not hesap:
+            abort(403)
+        g.db = vt.baglan(hesap["sema"] if hesap else None)
     return g.db
+
+
+def ydb():
+    if "ydb" not in g:
+        g.ydb = vt.baglan("yonetim")
+    return g.ydb
+
+
+def _ydb_birak():
+    baglanti = g.pop("ydb", None)
+    if baglanti is not None:
+        baglanti.close()
+
+
+def _hesap_getir(hid):
+    simdi = time.monotonic()
+    kayit = _hesap_onbellek.get(hid)
+    if kayit and kayit[0] > simdi:
+        return kayit[1]
+    r = ydb().execute("SELECT * FROM hesap WHERE id=?", (hid,)).fetchone()
+    hesap = dict(r) if r else None
+    _ydb_birak()
+    _hesap_onbellek[hid] = (simdi + HESAP_ONBELLEK_SURESI, hesap)
+    return hesap
+
+
+def _kalan_gun(bitis):
+    return (date.fromisoformat(bitis) - date.today()).days
+
+
+def _odeme_uyari():
+    hesap = g.get("hesap")
+    if not hesap:
+        return ""
+    kalan = _kalan_gun(hesap["bitis"])
+    if kalan < 0:
+        return f"Ödeme süren {h.tarih_yaz(hesap['bitis'])} tarihinde doldu. Lütfen yöneticiyle görüş."
+    if kalan <= 7:
+        return f"Ödeme sürenin bitmesine {kalan} gün kaldı."
+    return ""
 
 
 @app.teardown_appcontext
 def kapat(_):
-    baglanti = g.pop("db", None)
-    if baglanti is not None:
-        baglanti.close()
+    for anahtar in ("db", "ydb"):
+        baglanti = g.pop(anahtar, None)
+        if baglanti is not None:
+            baglanti.close()
 
 
 @app.before_request
@@ -86,8 +139,19 @@ def yerel_koruma():
             abort(403)
     elif request.host.split(":")[0] not in ("127.0.0.1", "localhost"):
         abort(403)
-    if CANLI and request.endpoint not in ACIK_SAYFALAR and not session.get("girdi"):
-        return redirect(url_for("giris_yap"))
+    uc = request.endpoint or ""
+    if uc.startswith("admin_"):
+        if uc != "admin_giris" and not session.get("admin"):
+            return redirect(url_for("admin_giris"))
+    elif CANLI and uc not in ACIK_SAYFALAR:
+        hid = session.get("hesap_id")
+        hesap = _hesap_getir(hid) if hid else None
+        if not hesap or hesap["durum"] != "acik":
+            session.pop("hesap_id", None)
+            if hesap:
+                flash("Bu hesap kapatıldı. Lütfen yöneticiyle görüş.", "hata")
+            return redirect(url_for("giris_yap"))
+        g.hesap = hesap
     if request.method == "POST":
         kaynak = request.headers.get("Origin") or request.headers.get("Referer")
         if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
@@ -116,8 +180,9 @@ def geri(varsayilan="ana"):
 
 @app.errorhandler(Hata)
 def kullanici_hatasi(e):
-    if "db" in g:
-        g.db.rollback()
+    for anahtar in ("db", "ydb"):
+        if anahtar in g:
+            g.get(anahtar).rollback()
     flash(str(e), "hata")
     return geri()
 
@@ -130,10 +195,10 @@ def cok_buyuk(_):
 
 @app.context_processor
 def ortak():
-    if request.endpoint in ACIK_SAYFALAR:
-        return {}
+    if request.endpoint in ACIK_SAYFALAR or (request.endpoint or "").startswith("admin_"):
+        return {"bugun": date.today().isoformat()}
     return {"bugun": date.today().isoformat(), "ayar": q.ayarlar(db()), "ikon": gorsel.ikon, "ust_menu": gorsel.UST_MENU, "hizli_ekle": gorsel.HIZLI_EKLE,
-            "ana_kutular": gorsel.KUTULAR, "sayfa": gorsel.SAYFA.get(request.endpoint, gorsel.VARSAYILAN), "canli": CANLI}
+            "ana_kutular": gorsel.KUTULAR, "sayfa": gorsel.SAYFA.get(request.endpoint, gorsel.VARSAYILAN), "canli": CANLI, "hesap": g.get("hesap"), "odeme_uyari": _odeme_uyari()}
 
 
 @app.get("/saglik")
@@ -141,29 +206,43 @@ def saglik():
     return "tamam"
 
 
+def _deneme_kilitli(anahtar):
+    simdi = time.monotonic()
+    for k in [k for k, (_, bitis) in _denemeler.items() if bitis <= simdi]:
+        del _denemeler[k]
+    return _denemeler.get(anahtar, (0, 0))[0] >= EN_FAZLA_DENEME
+
+
+def _yanlis_deneme(anahtar):
+    sayi, bitis = _denemeler.get(anahtar, (0, time.monotonic() + KILIT_SURESI))
+    _denemeler[anahtar] = (sayi + 1, bitis)
+
+
 @app.route("/giris-yap", methods=["GET", "POST"])
 def giris_yap():
     if not CANLI:
         return redirect(url_for("ana"))
-    hata = "" if SIFRE else "Program şifresi henüz ayarlanmamış."
-    if request.method == "POST" and SIFRE:
-        simdi = time.monotonic()
-        for ip in [k for k, (_, bitis) in _denemeler.items() if bitis <= simdi]:
-            del _denemeler[ip]
-        ip = request.remote_addr or ""
-        sayi, bitis = _denemeler.get(ip, (0, simdi + KILIT_SURESI))
-        if sayi >= EN_FAZLA_DENEME:
+    hata = ""
+    if request.method == "POST":
+        anahtar = request.remote_addr or ""
+        if _deneme_kilitli(anahtar):
             hata = "Çok fazla yanlış deneme oldu. 5 dakika sonra tekrar dene."
-        elif hmac.compare_digest(request.form.get("sifre", "").encode(), SIFRE.encode()):
-            _denemeler.pop(ip, None)
-            session.clear()
-            session["girdi"] = True
-            session.permanent = True
-            return redirect(url_for("ana"))
         else:
-            _denemeler[ip] = (sayi + 1, bitis)
-            hata = "Şifre yanlış."
-    return render_template("giris_yap.html", hata=hata), (401 if hata and request.method == "POST" else 200)
+            kullanici = (request.form.get("kullanici") or "").strip().lower()
+            r = ydb().execute("SELECT * FROM hesap WHERE kullanici=?", (kullanici,)).fetchone()
+            dogru = check_password_hash(r["sifre_ozet"] if r else BOS_OZET, request.form.get("sifre", ""))
+            if not r or not dogru:
+                _yanlis_deneme(anahtar)
+                hata = "Kullanıcı adı ya da şifre yanlış."
+            elif r["durum"] != "acik":
+                hata = "Bu hesap kapalı. Lütfen yöneticiyle görüş."
+            else:
+                _denemeler.pop(anahtar, None)
+                session.clear()
+                session["hesap_id"] = r["id"]
+                session.permanent = True
+                return redirect(url_for("ana"))
+    return render_template("giris_yap.html", hata=hata), (401 if hata else 200)
 
 
 @app.post("/cikis")
@@ -214,6 +293,189 @@ def gun_param():
     if not t:
         return date.today().isoformat()
     return h.tarih_coz(t)
+
+
+# ---------- Yonetici paneli ----------
+
+ODEME_SEKILLERI = ["Havale", "Nakit", "Kart"]
+ODEME_AYLARI = {1, 3, 6, 12}
+
+
+def _hesap_degisti(hid):
+    _hesap_onbellek.pop(hid, None)
+
+
+def _admin_hesap(hid):
+    r = bir_y("SELECT * FROM hesap WHERE id=?", (hid,))
+    d = dict(r)
+    d["kalan"] = _kalan_gun(d["bitis"])
+    return d
+
+
+def bir_y(sql, args=()):
+    r = ydb().execute(sql, args).fetchone()
+    if r is None:
+        abort(404)
+    return r
+
+
+def _yeni_ozet(sifre):
+    if len(sifre) < 8:
+        raise Hata("Şifre en az 8 harf olmalı.")
+    return generate_password_hash(sifre, method="pbkdf2:sha256:600000")
+
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin_giris():
+    hata = ""
+    if request.method == "POST":
+        anahtar = "admin:" + (request.remote_addr or "")
+        if _deneme_kilitli(anahtar):
+            hata = "Çok fazla yanlış deneme oldu. 5 dakika sonra tekrar dene."
+        elif check_password_hash(ADMIN_OZET, request.form.get("sifre", "")):
+            _denemeler.pop(anahtar, None)
+            session["admin"] = True
+            return redirect(url_for("admin_giris"))
+        else:
+            _yanlis_deneme(anahtar)
+            hata = "Şifre yanlış."
+    if not session.get("admin"):
+        return render_template("admin_giris.html", hata=hata), (401 if hata else 200)
+    hesaplar = []
+    for r in ydb().execute("SELECT * FROM hesap ORDER BY id").fetchall():
+        d = dict(r)
+        d["kalan"] = _kalan_gun(d["bitis"])
+        hesaplar.append(d)
+    ay = date.today().strftime("%Y-%m")
+    bu_ay = ydb().execute("SELECT COALESCE(SUM(kurus),0) FROM odeme WHERE iptal=0 AND substr(tarih,1,7)=?", (ay,)).fetchone()[0]
+    _ydb_birak()
+    notlar = []
+    for hs in hesaplar:
+        baglanti = vt.baglan(hs["sema"])
+        try:
+            for n in baglanti.execute("SELECT zaman, metin FROM notlar WHERE iptal=0 AND yapildi=0 ORDER BY id DESC LIMIT 20").fetchall():
+                notlar.append({"isletme": hs["isletme"], "zaman": n["zaman"], "metin": n["metin"]})
+        finally:
+            baglanti.close()
+    notlar.sort(key=lambda n: n["zaman"], reverse=True)
+    ozet = {
+        "toplam": len(hesaplar), "acik": sum(1 for x in hesaplar if x["durum"] == "acik"),
+        "kapali": sum(1 for x in hesaplar if x["durum"] != "acik"),
+        "geciken": sum(1 for x in hesaplar if x["durum"] == "acik" and x["kalan"] < 0),
+        "bu_ay": bu_ay,
+    }
+    return render_template("admin.html", s=ozet, hesaplar=hesaplar, notlar=notlar[:50])
+
+
+@app.post("/admin/cikis")
+def admin_cikis():
+    session.pop("admin", None)
+    return redirect(url_for("admin_giris"))
+
+
+@app.route("/admin/hesap/yeni", methods=["GET", "POST"])
+def admin_hesap_yeni():
+    if request.method == "POST":
+        isletme = metin("isletme")
+        kullanici = metin("kullanici").lower()
+        if not isletme:
+            raise Hata("İşletme adı boş olamaz.")
+        if not re.fullmatch(r"[a-z0-9._-]{3,30}", kullanici):
+            raise Hata("Kullanıcı adı 3 ile 30 harf olmalı. Türkçe harf ve boşluk olmaz.")
+        if ydb().execute("SELECT id FROM hesap WHERE kullanici=?", (kullanici,)).fetchone():
+            raise Hata("Bu kullanıcı adı zaten var.")
+        c = ydb().execute(
+            "INSERT INTO hesap(isletme,yetkili,telefon,kullanici,sifre_ozet,sema,durum,bitis,acilis,notlar) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (isletme, metin("yetkili"), metin("telefon"), kullanici, _yeni_ozet(request.form.get("sifre", "")), "public", "kapali",
+             h.tarih_coz(request.form.get("bitis")), date.today().isoformat(), metin("notlar")))
+        hid = c.lastrowid
+        sema = f"h_{hid}"
+        # Bolumu hazir olana kadar hesap kapali kalir, yarim hesapla kimse baska kayitlara giremez.
+        ydb().commit()
+        _ydb_birak()
+        vt.hazirla(sema)
+        yeni = vt.baglan(sema)
+        try:
+            yeni.execute("UPDATE ayar SET deger=? WHERE anahtar='firma_ad'", (isletme,))
+            yeni.commit()
+        finally:
+            yeni.close()
+        ydb().execute("UPDATE hesap SET sema=?, durum='acik' WHERE id=?", (sema, hid))
+        ydb().commit()
+        _hesap_degisti(hid)
+        flash("Hesap açıldı.", "tamam")
+        return redirect(url_for("admin_hesap", hid=hid))
+    return render_template("admin_hesap_yeni.html", varsayilan_bitis=h.ay_ekle(date.today(), 1).isoformat())
+
+
+@app.get("/admin/hesap/<int:hid>")
+def admin_hesap(hid):
+    return render_template("admin_hesap.html", h=_admin_hesap(hid), odemeler=ydb().execute(
+        "SELECT * FROM odeme WHERE hesap_id=? AND iptal=0 ORDER BY tarih DESC, id DESC", (hid,)).fetchall())
+
+
+@app.post("/admin/hesap/<int:hid>/durum")
+def admin_hesap_durum(hid):
+    d = _admin_hesap(hid)
+    yeni = "kapali" if d["durum"] == "acik" else "acik"
+    ydb().execute("UPDATE hesap SET durum=? WHERE id=?", (yeni, hid))
+    ydb().commit()
+    _hesap_degisti(hid)
+    flash("Hesap kapatıldı." if yeni == "kapali" else "Hesap açıldı.", "tamam")
+    return redirect(url_for("admin_hesap", hid=hid))
+
+
+@app.post("/admin/hesap/<int:hid>/duzenle")
+def admin_hesap_duzenle(hid):
+    _admin_hesap(hid)
+    isletme = metin("isletme")
+    if not isletme:
+        raise Hata("İşletme adı boş olamaz.")
+    ydb().execute("UPDATE hesap SET isletme=?, yetkili=?, telefon=?, bitis=?, notlar=? WHERE id=?",
+                  (isletme, metin("yetkili"), metin("telefon"), h.tarih_coz(request.form.get("bitis")), metin("notlar"), hid))
+    sifre = request.form.get("sifre", "")
+    if sifre:
+        ydb().execute("UPDATE hesap SET sifre_ozet=? WHERE id=?", (_yeni_ozet(sifre), hid))
+    ydb().commit()
+    _hesap_degisti(hid)
+    flash("Bilgiler güncellendi.", "tamam")
+    return redirect(url_for("admin_hesap", hid=hid))
+
+
+@app.post("/admin/hesap/<int:hid>/odeme")
+def admin_odeme(hid):
+    d = _admin_hesap(hid)
+    k = h.kurus(request.form.get("tutar"), "Tutar")
+    if not k:
+        raise Hata("Tutar sıfır olamaz.")
+    sekil = request.form.get("sekil")
+    if sekil not in ODEME_SEKILLERI:
+        raise Hata("Ödeme şeklini seç.")
+    ay = kimlik(request.form.get("ay"), "Süre")
+    if ay not in ODEME_AYLARI:
+        raise Hata("Süreyi seç.")
+    bas = max(date.today(), date.fromisoformat(d["bitis"]))
+    yeni_bitis = h.ay_ekle(bas, ay).isoformat()
+    ydb().execute("INSERT INTO odeme(hesap_id,tarih,kurus,sekil,ay,notlar) VALUES(?,?,?,?,?,?)",
+                  (hid, h.tarih_coz(request.form.get("tarih")), k, sekil, ay, metin("notlar")))
+    ydb().execute("UPDATE hesap SET bitis=? WHERE id=?", (yeni_bitis, hid))
+    ydb().commit()
+    _hesap_degisti(hid)
+    flash(f"Ödeme işlendi. Yeni bitiş tarihi {h.tarih_yaz(yeni_bitis)}.", "tamam")
+    return redirect(url_for("admin_hesap", hid=hid))
+
+
+@app.post("/admin/hesap/<int:hid>/odeme/<int:oid>/iptal")
+def admin_odeme_iptal(hid, oid):
+    d = _admin_hesap(hid)
+    o = bir_y("SELECT * FROM odeme WHERE id=? AND hesap_id=? AND iptal=0", (oid, hid))
+    yeni_bitis = h.ay_ekle(date.fromisoformat(d["bitis"]), -o["ay"]).isoformat()
+    ydb().execute("UPDATE odeme SET iptal=1 WHERE id=?", (oid,))
+    ydb().execute("UPDATE hesap SET bitis=? WHERE id=?", (yeni_bitis, hid))
+    ydb().commit()
+    _hesap_degisti(hid)
+    flash(f"Ödeme iptal edildi. Bitiş tarihi {h.tarih_yaz(yeni_bitis)} oldu.", "tamam")
+    return redirect(url_for("admin_hesap", hid=hid))
 
 
 # ---------- Masaustu kurulumu ----------
@@ -936,7 +1198,7 @@ def ayarlar():
 
 
 def calistir():
-    vt.hazirla()
+    vt.hazirla_hepsi(os.environ.get("APP_SIFRE"))
     if not CANLI:
         vt.gunluk_yedek()
     # Tek is parcacikli sunucu, tarayicinin bos actigi baglantilarda kilitlenir.

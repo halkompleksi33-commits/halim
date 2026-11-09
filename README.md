@@ -40,6 +40,12 @@ Python, Flask, SQLite, openpyxl. Sadece bu bilgisayardan açılır, dış servis
 `DATABASE_URL` yoksa program Render'da bilerek açılmaz, kayıtlar kaybolmasın diye.
 İnternetteki ve bilgisayardaki kayıtlar birbirinden ayrıdır.
 
+### Hesaplar
+
+İnternette her hesap ayrı işletmedir, kayıtları kendi bölümünde durur. Hesaplar `/admin` panelinden açılır,
+kapatılır ve ödemeleri işlenir. İlk hesabın kullanıcı adı `halim`, şifresi `APP_SIFRE` değeridir.
+Yönetici şifresi `ADMIN_SIFRE` ile değiştirilebilir.
+
 ## Hesap kuralları
 
 - Para kuruş, miktar binde birim, oran onbinde olarak tam sayı tutulur.

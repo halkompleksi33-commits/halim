@@ -14,7 +14,7 @@
   <a class="marka" href="{{ url_for('ana') }}">
     <img src="{{ url_for('static', filename='logo.svg') }}" alt="Halim logosu">
     <b>Halim</b>
-    <small>Halde her hesabın yanında</small>
+    <small>{{ hesap.isletme if hesap else 'Halde her hesabın yanında' }}</small>
   </a>
   <nav class="ust-menu" aria-label="Ana menü">
     {% for m in ust_menu %}
@@ -37,6 +37,7 @@
   <button type="button" class="ust-indir" id="masaustu" data-sw="{{ url_for('servis_isci') }}">{{ ikon('indir', 'mavi') }}<b>Masaüstüne indir</b><small>Kısayol oluşturur</small></button>{% endif %}
 </header>
 <main>
+  {% if odeme_uyari %}<div class="bildirim hata yazdirma-yok" role="status">{{ odeme_uyari }}</div>{% endif %}
   {% for tur, mesaj in get_flashed_messages(with_categories=true) %}
     <div class="bildirim {{ tur }} yazdirma-yok">{{ mesaj }}</div>
   {% endfor %}

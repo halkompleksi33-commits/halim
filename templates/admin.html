@@ -1,0 +1,25 @@
+{% extends "admin_temel.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon('ayar', 'gri') }}<h1>Yönetici paneli</h1><p class="aciklama">Hesapları aç, kapat ve ödemelerini işle. İşletmelerin kendi kayıtları burada görünmez.</p></div>
+<a class="dugme" href="{{ url_for('admin_hesap_yeni') }}">+ Yeni hesap</a></div>
+
+<div class="kartlar">
+  <div class="kart">{{ ikon('dukkan','mavi') }}<span>Toplam hesap</span><b>{{ s.toplam }}</b><small>Açılmış bütün hesaplar.</small></div>
+  <div class="kart">{{ ikon('tik','yesil') }}<span>Açık hesap</span><b>{{ s.acik }}</b><small>Programı kullanabilen hesaplar.</small></div>
+  <div class="kart">{{ ikon('atla','gri') }}<span>Kapalı hesap</span><b>{{ s.kapali }}</b><small>Girişi durdurulmuş hesaplar.</small></div>
+  <div class="kart">{{ ikon('saat','kirmizi') }}<span>Süresi geçen</span><b class="{{ 'kirmizi' if s.geciken }}">{{ s.geciken }}</b><small>Ödemesi gecikmiş açık hesaplar.</small></div>
+  <div class="kart vurgu">{{ ikon('bozuk','yesil') }}<span>Bu ay gelen ödeme</span><b>{{ s.bu_ay|para }} ₺</b><small>Bu ay işlenen abonelik ödemeleri.</small></div>
+  <div class="kart">{{ ikon('liste','mavi') }}<span>Açık not</span><b>{{ notlar|length }}</b><small>Kullanıcıların yazdığı eksikler.</small></div>
+</div>
+
+<h2>Hesaplar</h2>
+{% if hesaplar %}<table><thead><tr><th>İşletme</th><th>Kullanıcı adı</th><th>Telefon</th><th>Ödeme bitişi</th><th>Durum</th></tr></thead><tbody>
+{% for h in hesaplar %}<tr><td><a href="{{ url_for('admin_hesap', hid=h.id) }}">{{ h.isletme }}</a></td><td>{{ h.kullanici }}</td><td>{{ h.telefon }}</td>
+<td class="{{ 'kirmizi' if h.kalan < 0 }}">{{ h.bitis|tarih }}{% if h.kalan < 0 %} ({{ -h.kalan }} gün geçti){% endif %}</td><td>{{ 'Açık' if h.durum == 'acik' else 'Kapalı' }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Henüz hesap yok.</p>{% endif %}
+
+<h2>Kullanıcıların notları</h2>
+{% if notlar %}<table><thead><tr><th>İşletme</th><th>Zaman</th><th>Not</th></tr></thead><tbody>
+{% for n in notlar %}<tr><td>{{ n.isletme }}</td><td>{{ n.zaman[:10]|tarih }} {{ n.zaman[11:16] }}</td><td class="admin-not">{{ n.metin }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Açık not yok.</p>{% endif %}
+{% endblock %}
