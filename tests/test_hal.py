@@ -1,5 +1,6 @@
 """Hesap kurallari ve bastan sona is akisi."""
 import io
+import json
 import os
 import sys
 import tempfile
@@ -78,7 +79,7 @@ class AkisTest(unittest.TestCase):
 
     def setUp(self):
         d = vt.baglan()
-        for t in ("hal_fiyat", "gider", "uretici_odeme", "tahsilat", "satis_kalem", "satis", "masraf", "giris_kalem", "giris", "urun", "musteri", "uretici"):
+        for t in ("notlar", "hal_fiyat", "gider", "uretici_odeme", "tahsilat", "satis_kalem", "satis", "masraf", "giris_kalem", "giris", "urun", "musteri", "uretici"):
             d.execute(f"DELETE FROM {t}")
         d.commit()
         d.close()
@@ -271,6 +272,20 @@ class AkisTest(unittest.TestCase):
         self.assertIn("satis_kalem", kitap.sheetnames)
         self.assertEqual(kitap["musteri"]["B2"].value, "Manav Ayşe")
 
+    def test_notlar(self):
+        self.assertEqual(self.c.get("/notlar").get_json(), [])
+        self.assertEqual(self.c.post("/notlar", data={"metin": "   "}).status_code, 400)
+        self.assertEqual(self.c.post("/notlar", data={"metin": "x" * 2001}).status_code, 400)
+        kotu = "<script>alert(1)</script> %50 ? eksik"
+        notlar = self.c.post("/notlar", data={"metin": kotu}).get_json()
+        self.assertEqual(notlar[0]["metin"], kotu)
+        self.assertFalse(notlar[0]["yapildi"])
+        self.assertRegex(notlar[0]["zaman"], r"^\d\d\.\d\d\.\d{4} \d\d:\d\d$")
+        nid = notlar[0]["id"]
+        self.assertTrue(self.c.post(f"/not/{nid}/yapildi").get_json()[0]["yapildi"])
+        self.assertFalse(self.c.post(f"/not/{nid}/yapildi").get_json()[0]["yapildi"])
+        self.assertEqual(self.c.post(f"/not/{nid}/sil").get_json(), [])
+
     def test_liste_toplu_hesap_tekli_ile_ayni(self):
         self.kur()
         k = self.giris()
@@ -301,7 +316,7 @@ class GirisTest(unittest.TestCase):
         uygulama._denemeler.clear()
 
     def test_sifresiz_sayfa_acilmaz(self):
-        for yol in ("/", "/musteriler", "/yedek/excel", "/kunye/excel"):
+        for yol in ("/", "/musteriler", "/yedek/excel", "/kunye/excel", "/notlar"):
             c = self.c.get(yol)
             self.assertEqual(c.status_code, 302, yol)
             self.assertIn("/giris-yap", c.headers["Location"])
@@ -321,6 +336,31 @@ class GirisTest(unittest.TestCase):
         self.assertIn("Çıkış yap", cevap.get_data(as_text=True))
         self.c.post("/cikis")
         self.assertEqual(self.c.get("/").status_code, 302)
+
+    def test_masaustu_kurulumu(self):
+        self.assertIn(b"fetch", self.c.get("/sw.js").data)
+        self.assertEqual(self.c.get("/kisayol.url").status_code, 302)
+        self.c.post("/giris-yap", data={"sifre": "dogru-sifre"})
+        sayfa = self.c.get("/").get_data(as_text=True)
+        self.assertIn('id="masaustu"', sayfa)
+        self.assertIn('rel="manifest"', sayfa)
+        self.assertLess(sayfa.index("Çıkış yap"), sayfa.index('id="masaustu"'))
+        cevap = self.c.get("/kisayol.url")
+        self.assertIn(b"[InternetShortcut]\r\nURL=http://localhost/\r\n", cevap.data)
+        self.assertIn("Halim.url", cevap.headers["Content-Disposition"])
+        bilgi = json.loads(self.c.get("/static/manifest.webmanifest").data)
+        self.assertEqual((bilgi["name"], bilgi["start_url"], bilgi["display"]), ("Halim", "/", "standalone"))
+        for s in bilgi["icons"]:
+            veri = self.c.get(s["src"]).data
+            self.assertEqual(veri[:8], b"\x89PNG\r\n\x1a\n")
+            en = int.from_bytes(veri[16:20], "big")
+            self.assertEqual(f"{en}x{en}", s["sizes"])
+
+    def test_bilgisayarda_indir_dugmesi_yok(self):
+        uygulama.CANLI = False
+        sayfa = uygulama.app.test_client().get("/").get_data(as_text=True)
+        self.assertNotIn('id="masaustu"', sayfa)
+        self.assertNotIn('rel="manifest"', sayfa)
 
     def test_cok_deneme_kilitler(self):
         for _ in range(5):

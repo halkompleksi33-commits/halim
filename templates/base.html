@@ -6,6 +6,8 @@
 <title>{% block baslik %}Halim{% endblock %}</title>
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='stil.css') }}">
+{% if canli %}<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+<meta name="theme-color" content="#17603f">{% endif %}
 </head>
 <body>
 <header class="ust-bant yazdirma-yok">
@@ -21,7 +23,8 @@
     </a>
     {% endfor %}
   </nav>
-  {% if canli %}<form method="post" action="{{ url_for('cikis') }}"><button class="ikincil">Çıkış yap</button></form>{% endif %}
+  {% if canli %}<form method="post" action="{{ url_for('cikis') }}"><button class="ikincil">Çıkış yap</button></form>
+  <button type="button" class="ust-indir" id="masaustu" data-sw="{{ url_for('servis_isci') }}">{{ ikon('indir', 'mavi') }}<b>Masaüstüne indir</b><small>Kısayol oluşturur</small></button>{% endif %}
 </header>
 <main>
   {% for tur, mesaj in get_flashed_messages(with_categories=true) %}
@@ -29,6 +32,26 @@
   {% endfor %}
   {% block icerik %}{% endblock %}
 </main>
+{% if canli %}<dialog class="indir-pencere yazdirma-yok" id="masaustu-yardim" aria-labelledby="indir-baslik">
+  {{ ikon('indir', 'mavi') }}
+  <h2 id="indir-baslik">Kısayol dosyasını indir</h2>
+  <p>Tarayıcın Halim'i kendisi kuramadı. Halim daha önce kurulduysa masaüstünde ya da Başlat menüsünde bulabilirsin.</p>
+  <ol><li>Aşağıdaki düğmeyle dosyayı indir.</li><li>İndirilenler klasörünü aç.</li><li>Halim dosyasını masaüstüne sürükle.</li></ol>
+  <div class="satir"><a class="dugme" href="{{ url_for('kisayol') }}" download="Halim.url">Kısayol dosyasını indir</a><form method="dialog"><button class="ikincil">Kapat</button></form></div>
+</dialog>{% endif %}
+<div class="notlar yazdirma-yok" id="notlar" data-adres="{{ url_for('notlar') }}" data-kok="{{ url_for('ana') }}">
+  <section class="not-pencere" id="not-pencere" role="dialog" aria-label="Notlar" hidden>
+    <header><div><b>Notlar</b><small>Eksikleri ve istekleri buraya yaz</small></div><button type="button" id="not-kapat" aria-label="Notları kapat">×</button></header>
+    <div class="not-liste" id="not-liste" aria-live="polite"></div>
+    <div class="not-hata" id="not-hata" role="alert" hidden></div>
+    <form id="not-form"><textarea id="not-metin" rows="1" maxlength="2000" placeholder="Bir not yaz" aria-label="Not yaz"></textarea><button aria-label="Notu gönder" title="Gönder">➤</button></form>
+  </section>
+  <button type="button" class="not-dugme" id="not-dugme" aria-expanded="false" aria-controls="not-pencere">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5C6.5 2.5 2 6.4 2 11.300c0 2.500 1.200 4.800 3.100 6.400L4 21.500l4.400-2c1.100.4 2.300.6 3.600.6 5.500 0 10-3.900 10-8.800S17.500 2.500 12 2.500z" fill="#fff"/><path d="M7.500 9.500h9M7.500 13h6" stroke="#1f7a4d" stroke-width="1.800" stroke-linecap="round"/></svg>
+    <span class="not-sayi" id="not-sayi" hidden></span>
+    <small>Notlar</small>
+  </button>
+</div>
 <script src="{{ url_for('static', filename='ekran.js') }}"></script>
 </body>
 </html>

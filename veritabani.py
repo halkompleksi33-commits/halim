@@ -81,7 +81,7 @@ class _PgImlec:
 
 
 _ID_TABLOLARI = {"uretici", "musteri", "urun", "giris", "giris_kalem", "masraf", "satis", "satis_kalem",
-                 "tahsilat", "uretici_odeme", "gider"}
+                 "tahsilat", "uretici_odeme", "gider", "notlar"}
 
 
 class _PgBaglanti:
@@ -198,6 +198,10 @@ CREATE TABLE IF NOT EXISTS hal_fiyat(
   tarih TEXT NOT NULL, urun_id INTEGER NOT NULL REFERENCES urun(id),
   en_dusuk_kurus INTEGER NOT NULL, en_yuksek_kurus INTEGER NOT NULL,
   PRIMARY KEY(tarih, urun_id));
+
+CREATE TABLE IF NOT EXISTS notlar(
+  id INTEGER PRIMARY KEY, zaman TEXT NOT NULL, metin TEXT NOT NULL,
+  yapildi INTEGER NOT NULL DEFAULT 0, iptal INTEGER NOT NULL DEFAULT 0);
 
 CREATE INDEX IF NOT EXISTS ix_giris_tarih ON giris(tarih);
 CREATE INDEX IF NOT EXISTS ix_satis_tarih ON satis(tarih);

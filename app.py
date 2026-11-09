@@ -6,11 +6,11 @@ import re
 import threading
 import time
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from flask import (Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for)
+from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, session, url_for)
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -42,7 +42,7 @@ if os.environ.get("RENDER") and not CANLI:
     raise RuntimeError("DATABASE_URL ayarlanmadan program internette acilamaz.")
 SIFRE = os.environ.get("APP_SIFRE", "")
 CANLI_ADRES = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
-ACIK_SAYFALAR = {"giris_yap", "saglik", "static"}
+ACIK_SAYFALAR = {"giris_yap", "saglik", "static", "servis_isci"}
 EN_FAZLA_DENEME = 5
 KILIT_SURESI = 300
 _denemeler = {}
@@ -176,7 +176,7 @@ def yedek_excel():
     kitap = Workbook()
     kitap.remove(kitap.active)
     for tablo in ("ayar", "uretici", "musteri", "urun", "giris", "giris_kalem", "masraf", "satis", "satis_kalem",
-                  "tahsilat", "uretici_odeme", "gider", "hal_fiyat"):
+                  "tahsilat", "uretici_odeme", "gider", "hal_fiyat", "notlar"):
         sayfa = kitap.create_sheet(tablo)
         satirlar = db().execute(f"SELECT * FROM {tablo}").fetchall()
         if satirlar:
@@ -213,6 +213,66 @@ def gun_param():
     if not t:
         return date.today().isoformat()
     return h.tarih_coz(t)
+
+
+# ---------- Masaustu kurulumu ----------
+
+@app.get("/sw.js")
+def servis_isci():
+    # Kapsami butun site olsun diye kok adresten verilir.
+    cevap = app.send_static_file("sw.js")
+    cevap.headers["Cache-Control"] = "no-cache"
+    return cevap
+
+
+@app.get("/kisayol.url")
+def kisayol():
+    kok = request.url_root
+    icerik = f"[InternetShortcut]\r\nURL={kok}\r\nIconIndex=0\r\nIconFile={kok}static/halim-logo.ico\r\n"
+    return send_file(io.BytesIO(icerik.encode("utf-8")), as_attachment=True, download_name="Halim.url",
+                     mimetype="application/internet-shortcut")
+
+
+# ---------- Notlar ----------
+
+NOT_EN_UZUN = 2000
+
+
+def _notlar_json():
+    satirlar = db().execute("SELECT * FROM notlar WHERE iptal=0 ORDER BY id").fetchall()
+    return jsonify([{"id": n["id"], "metin": n["metin"], "yapildi": bool(n["yapildi"]),
+                     "zaman": f"{h.tarih_yaz(n['zaman'][:10])} {n['zaman'][11:16]}"} for n in satirlar])
+
+
+@app.get("/notlar")
+def notlar():
+    return _notlar_json()
+
+
+@app.post("/notlar")
+def not_ekle():
+    metin_ = (request.form.get("metin") or "").strip()
+    if not metin_:
+        return jsonify(hata="Boş not gönderilemez."), 400
+    if len(metin_) > NOT_EN_UZUN:
+        return jsonify(hata=f"Not en fazla {NOT_EN_UZUN} harf olabilir."), 400
+    db().execute("INSERT INTO notlar(zaman,metin) VALUES(?,?)", (datetime.now().isoformat(timespec="minutes"), metin_))
+    db().commit()
+    return _notlar_json()
+
+
+@app.post("/not/<int:nid>/yapildi")
+def not_yapildi(nid):
+    db().execute("UPDATE notlar SET yapildi=1-yapildi WHERE id=?", (nid,))
+    db().commit()
+    return _notlar_json()
+
+
+@app.post("/not/<int:nid>/sil")
+def not_sil(nid):
+    db().execute("UPDATE notlar SET iptal=1 WHERE id=?", (nid,))
+    db().commit()
+    return _notlar_json()
 
 
 # ---------- Ana sayfa ve raporlar ----------

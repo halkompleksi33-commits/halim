@@ -73,3 +73,143 @@
     });
   });
 })();
+
+(function () {
+  var kok = document.getElementById("notlar");
+  if (!kok) return;
+  var adres = kok.dataset.adres;
+  var taban = adres.replace(/notlar$/, "");
+  var pencere = document.getElementById("not-pencere");
+  var dugme = document.getElementById("not-dugme");
+  var liste = document.getElementById("not-liste");
+  var alan = document.getElementById("not-metin");
+  var sayi = document.getElementById("not-sayi");
+  var hataKutu = document.getElementById("not-hata");
+
+  function hata(mesaj) {
+    hataKutu.textContent = mesaj || "";
+    hataKutu.hidden = !mesaj;
+  }
+
+  function ciz(notlar) {
+    var acik = notlar.filter(function (n) { return !n.yapildi; }).length;
+    sayi.textContent = acik;
+    sayi.hidden = !acik;
+    liste.textContent = "";
+    if (!notlar.length) {
+      var bos = document.createElement("p");
+      bos.className = "not-bos";
+      bos.textContent = "Henüz not yok. Eksik gördüğün bir şeyi aşağıya yazabilirsin.";
+      liste.appendChild(bos);
+      return;
+    }
+    notlar.forEach(function (n) {
+      var balon = document.createElement("article");
+      balon.className = "not-balon" + (n.yapildi ? " yapildi" : "");
+      var yazi = document.createElement("p");
+      yazi.textContent = n.metin;
+      var alt = document.createElement("div");
+      alt.className = "not-alt";
+      var zaman = document.createElement("span");
+      zaman.textContent = n.zaman;
+      var tamam = document.createElement("button");
+      tamam.type = "button";
+      tamam.textContent = n.yapildi ? "Geri al" : "Yapıldı";
+      tamam.addEventListener("click", function () { gonder(taban + "not/" + n.id + "/yapildi"); });
+      var sil = document.createElement("button");
+      sil.type = "button";
+      sil.className = "sil";
+      sil.textContent = "Sil";
+      sil.addEventListener("click", function () { gonder(taban + "not/" + n.id + "/sil"); });
+      alt.appendChild(zaman);
+      alt.appendChild(tamam);
+      alt.appendChild(sil);
+      balon.appendChild(yazi);
+      balon.appendChild(alt);
+      liste.appendChild(balon);
+    });
+    liste.scrollTop = liste.scrollHeight;
+  }
+
+  function isle(yanit) {
+    if (yanit.redirected) { location.reload(); return null; }
+    return yanit.json().then(function (veri) {
+      if (!yanit.ok) throw new Error(veri.hata || "Not kaydedilemedi.");
+      return veri;
+    });
+  }
+
+  function basarili(veri) {
+    if (veri) { hata(""); ciz(veri); }
+    return !!veri;
+  }
+
+  function gonder(hedef, govde) {
+    return fetch(hedef, { method: "POST", body: govde || new URLSearchParams() })
+      .then(isle).then(basarili)
+      .catch(function (e) { hata(e.message && e.name === "Error" ? e.message : "Bağlantı kurulamadı. Yeniden dene."); return false; });
+  }
+
+  function yukle() {
+    return fetch(adres).then(isle).then(basarili).catch(function () { hata("Notlar yüklenemedi."); });
+  }
+
+  function ac(durum) {
+    pencere.hidden = !durum;
+    dugme.setAttribute("aria-expanded", String(durum));
+    if (durum) { yukle(); alan.focus(); } else { dugme.focus(); }
+  }
+
+  function yukseklik() {
+    alan.style.height = "auto";
+    alan.style.height = alan.scrollHeight + 2 + "px";
+  }
+
+  var gonderiliyor = false;
+  function yolla() {
+    var metin = alan.value.trim();
+    if (!metin || gonderiliyor) return;
+    gonderiliyor = true;
+    gonder(adres, new URLSearchParams({ metin: metin })).then(function (oldu) {
+      gonderiliyor = false;
+      if (oldu) { alan.value = ""; yukseklik(); alan.focus(); }
+    });
+  }
+
+  dugme.addEventListener("click", function () { ac(pencere.hidden); });
+  document.getElementById("not-kapat").addEventListener("click", function () { ac(false); });
+  document.getElementById("not-form").addEventListener("submit", function (e) { e.preventDefault(); yolla(); });
+  alan.addEventListener("input", yukseklik);
+  alan.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); yolla(); }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !pencere.hidden) ac(false);
+  });
+  yukle();
+})();
+
+(function () {
+  var dugme = document.getElementById("masaustu");
+  if (!dugme) return;
+  var kurulu = window.matchMedia("(display-mode: standalone)").matches;
+  if (kurulu) { dugme.hidden = true; return; }
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register(dugme.dataset.sw).catch(function () {});
+  }
+  var istem = null;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    istem = e;
+  });
+  window.addEventListener("appinstalled", function () { dugme.hidden = true; });
+  dugme.addEventListener("click", function () {
+    if (!istem) {
+      document.getElementById("masaustu-yardim").showModal();
+      return;
+    }
+    var kullanilan = istem;
+    istem = null;
+    kullanilan.prompt();
+  });
+})();
