@@ -15,12 +15,12 @@
     <label>Stopaj %<input name="stopaj" inputmode="decimal" value="{{ ayar.stopaj_bp|int|oran }}" required><small>Üretici adına kesilen vergi. Yoksa 0 yaz.</small></label>
   </div>
   <h2>Gelen mal</h2>
-  <table class="giris-tablo"><thead><tr><th>Ürün</th><th>Künye no<small>Resmi künye numarası</small></th><th>Kasa<small>Kaç kasa geldi</small></th><th>Miktar<small>Kilo ya da adet</small></th><th>Künye<small>Demo numara alır</small></th><th></th></tr></thead>
+  <table class="giris-tablo"><thead><tr><th>Ürün</th><th>Kasa<small>Kaç kasa geldi</small></th><th>Miktar<small>Kilo ya da adet</small></th><th>Künye no<small>Resmi künye numarası</small></th><th>Künye<small>Demo numara alır</small></th><th></th></tr></thead>
   <tbody id="kalemler"></tbody></table>
   <template id="kalemler-sablon"><tr>
     <td><select name="urun_id" required aria-label="Ürün"><option value="">Seç</option>{% for u in urunler %}<option value="{{ u.id }}">{{ u.ad }} ({{ u.birim }})</option>{% endfor %}</select></td>
-    <td><input name="kunye_no" aria-label="Künye no"></td><td><input name="kasa" inputmode="numeric" class="kisa" aria-label="Kasa"></td>
-    <td><input name="miktar" inputmode="decimal" class="kisa" required aria-label="Miktar"></td><td><button type="button" class="ikincil kunye-al" data-adres="{{ url_for('demo_kunye') }}">Künye al</button></td><td><button type="button" class="satir-sil" aria-label="Satırı sil">×</button></td>
+    <td><input name="kasa" inputmode="numeric" class="kisa" aria-label="Kasa"></td>
+    <td><input name="miktar" inputmode="decimal" class="kisa" required aria-label="Miktar"></td><td><input name="kunye_no" aria-label="Künye no"></td><td><button type="button" class="ikincil kunye-al" data-adres="{{ url_for('demo_kunye') }}">Künye al</button></td><td><button type="button" class="satir-sil" aria-label="Satırı sil">×</button></td>
   </tr></template>
   <p class="aciklama demo-not"><span class="demo-etiket">Demo</span> Künye al tuşu deneme numarası üretir, resmi künye değildir.</p>
   <button type="button" class="ikincil" data-satir-ekle="kalemler">+ Ürün ekle</button>

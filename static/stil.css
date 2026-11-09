@@ -153,3 +153,6 @@ button.satir-sil{background:#fff;color:var(--kirmizi);border:1px solid var(--ciz
 .satir form button .ikon-kutu{width:24px;height:24px;padding:2px;border-radius:6px;background:none;vertical-align:middle;margin-right:5px}
 .admin-not{white-space:pre-wrap;overflow-wrap:anywhere}
 .kart b.kart-yazi{font-size:18px;white-space:normal}
+#satis-form{max-width:none}
+#satis-form .giris-tablo select.mal-sec{width:auto;min-width:100%}
+#satis-form .giris-tablo .kisa{width:96px}
