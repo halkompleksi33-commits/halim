@@ -71,6 +71,10 @@ class AkisTest(unittest.TestCase):
         vt.hazirla()
         uygulama.app.config["TESTING"] = False
         cls.c = uygulama.app.test_client()
+        if uygulama.CANLI:
+            uygulama.SIFRE, uygulama.CANLI_ADRES = "deneme", "localhost"
+            uygulama.app.config["SESSION_COOKIE_SECURE"] = False
+            cls.c.post("/giris-yap", data={"sifre": "deneme"})
 
     def setUp(self):
         d = vt.baglan()
@@ -254,9 +258,81 @@ class AkisTest(unittest.TestCase):
         c = self.c.get("/", headers={"Host": "kotu.example"})
         self.assertEqual(c.status_code, 403)
 
+    @unittest.skipIf(vt.canli_mi(), "Dosya yedegi sadece bilgisayarda calisir")
     def test_yedek(self):
         hedef = vt.gunluk_yedek()
         self.assertTrue(hedef.exists())
+
+    def test_excel_yedek_indirme(self):
+        self.kur()
+        k = self.giris()
+        self.satis(k)
+        kitap = load_workbook(io.BytesIO(self.c.get("/yedek/excel").data))
+        self.assertIn("satis_kalem", kitap.sheetnames)
+        self.assertEqual(kitap["musteri"]["B2"].value, "Manav Ayşe")
+
+    def test_liste_toplu_hesap_tekli_ile_ayni(self):
+        self.kur()
+        k = self.giris()
+        self.satis(k, miktar="10", fiyat="100")
+        self.post(f"/musteri/{self.mid}/tahsilat", tarih=BUGUN, tutar="400", sekil="Nakit", notlar="")
+        self.post(f"/uretici/{self.uid}/odeme", tarih=BUGUN, tutar="200", sekil="Nakit", notlar="")
+        d = vt.baglan()
+        m = q.musteri_listesi(d)[0]
+        mr = d.execute("SELECT * FROM musteri WHERE id=?", (self.mid,)).fetchone()
+        self.assertEqual(m["bakiye"], q.musteri_bakiye(d, self.mid))
+        self.assertEqual(m["vade_bilgi"], q.musteri_vade(d, mr))
+        u = next(x for x in q.uretici_listesi(d) if x["id"] == self.uid)
+        self.assertEqual(u["bakiye"], q.uretici_bakiye(d, self.uid))
+        d.close()
+
+
+class GirisTest(unittest.TestCase):
+    def setUp(self):
+        vt.hazirla()
+        self.eski = (uygulama.CANLI, uygulama.SIFRE)
+        uygulama.CANLI, uygulama.SIFRE = True, "dogru-sifre"
+        uygulama._denemeler.clear()
+        uygulama.app.config["SESSION_COOKIE_SECURE"] = False
+        self.c = uygulama.app.test_client()
+
+    def tearDown(self):
+        uygulama.CANLI, uygulama.SIFRE = self.eski
+        uygulama._denemeler.clear()
+
+    def test_sifresiz_sayfa_acilmaz(self):
+        for yol in ("/", "/musteriler", "/yedek/excel", "/kunye/excel"):
+            c = self.c.get(yol)
+            self.assertEqual(c.status_code, 302, yol)
+            self.assertIn("/giris-yap", c.headers["Location"])
+        self.assertEqual(self.c.post("/urunler", data={"ad": "X"}).status_code, 302)
+
+    def test_acik_sayfalar(self):
+        self.assertEqual(self.c.get("/saglik", headers={"Host": "ic.adres"}).data, b"tamam")
+        self.assertEqual(self.c.get("/giris-yap").status_code, 200)
+        self.assertEqual(self.c.get("/static/logo.svg").status_code, 200)
+
+    def test_yanlis_ve_dogru_sifre(self):
+        self.assertEqual(self.c.post("/giris-yap", data={"sifre": "yanlis"}).status_code, 401)
+        self.assertEqual(self.c.get("/").status_code, 302)
+        self.assertEqual(self.c.post("/giris-yap", data={"sifre": "dogru-sifre"}).status_code, 302)
+        cevap = self.c.get("/")
+        self.assertEqual(cevap.status_code, 200)
+        self.assertIn("Çıkış yap", cevap.get_data(as_text=True))
+        self.c.post("/cikis")
+        self.assertEqual(self.c.get("/").status_code, 302)
+
+    def test_cok_deneme_kilitler(self):
+        for _ in range(5):
+            self.c.post("/giris-yap", data={"sifre": "yanlis"})
+        cevap = self.c.post("/giris-yap", data={"sifre": "dogru-sifre"})
+        self.assertIn("5 dakika", cevap.get_data(as_text=True))
+        self.assertEqual(self.c.get("/").status_code, 302)
+
+    def test_sifre_ayarsizsa_kimse_giremez(self):
+        uygulama.SIFRE = ""
+        self.assertEqual(self.c.post("/giris-yap", data={"sifre": ""}).status_code, 401)
+        self.assertEqual(self.c.get("/").status_code, 302)
 
 
 if __name__ == "__main__":

@@ -73,3 +73,10 @@ button.satir-sil{background:#fff;color:var(--kirmizi);border:1px solid var(--ciz
 @media (max-width:900px){.iki{grid-template-columns:1fr}.ust-bant{padding:10px 16px}main{padding:16px}.ust-menu a{width:104px}}
 @media (prefers-reduced-motion:reduce){.kutucuk{transition:none}.kutucuk:hover{transform:none}}
 @media print{body{background:#fff;font-size:13px}.yazdirma-yok,.ikon-kutu,.kart small{display:none!important}main{padding:0;max-width:none}a{color:inherit;text-decoration:none}.kart,table{border-color:#999;box-shadow:none}th,td{border-color:#bbb;padding:4px 6px}}
+
+.giris-sayfa{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.giris-kutu{background:var(--yuzey);border:1px solid var(--cizgi);border-radius:20px;padding:32px;width:100%;max-width:400px;box-shadow:var(--golge);display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
+.giris-kutu img{border-radius:24px}
+.giris-kutu label{display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;font-weight:600;font-size:15px}
+.giris-kutu input{width:100%}.giris-kutu .ana-dugme{width:100%;align-self:stretch}.giris-kutu .bildirim{width:100%;margin:0}
+.ust-bant form{margin-left:auto}

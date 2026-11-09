@@ -62,18 +62,14 @@ def uretici_ekstre(db, u):
     return _bakiyeli(h)
 
 
-def musteri_vade(db, m, bugun=None):
+def _vade_bul(m, alacak, satislar, bugun):
     """Tahsilatlari en eski borca dusup kalan ilk borcun vadesini bulur."""
-    bugun = bugun or date.today()
     borclar = []
-    alacak = _toplam(db, "SELECT SUM(kurus) FROM tahsilat WHERE musteri_id=? AND iptal=0", (m["id"],))
     if m["acilis_kurus"] > 0:
         borclar.append((m["acilis_tarih"], m["acilis_kurus"]))
     elif m["acilis_kurus"] < 0:
         alacak += -m["acilis_kurus"]
-    borclar += [(s["tarih"], s["toplam"]) for s in db.execute(
-        "SELECT tarih, toplam FROM v_satis WHERE musteri_id=? AND iptal=0 AND odeme='veresiye' ORDER BY tarih, id",
-        (m["id"],))]
+    borclar += satislar
     borclar.sort(key=lambda b: b[0])
     for tarih, tutar in borclar:
         if alacak >= tutar:
@@ -84,22 +80,43 @@ def musteri_vade(db, m, bugun=None):
     return None
 
 
+def musteri_vade(db, m, bugun=None):
+    alacak = _toplam(db, "SELECT SUM(kurus) FROM tahsilat WHERE musteri_id=? AND iptal=0", (m["id"],))
+    satislar = [(s["tarih"], s["toplam"]) for s in db.execute(
+        "SELECT tarih, toplam FROM v_satis WHERE musteri_id=? AND iptal=0 AND odeme='veresiye' ORDER BY tarih, id",
+        (m["id"],))]
+    return _vade_bul(m, alacak, satislar, bugun or date.today())
+
+
 def musteri_listesi(db):
+    # Veri uzaktayken her musteri icin ayri sorgu ekrani yavaslatir, hepsi tek seferde alinir.
+    bugun = date.today()
+    tahsilatlar = {r[0]: r[1] for r in db.execute(
+        "SELECT musteri_id, SUM(kurus) FROM tahsilat WHERE iptal=0 GROUP BY musteri_id")}
+    satislar = {}
+    for r in db.execute(
+            "SELECT musteri_id, tarih, toplam FROM v_satis WHERE iptal=0 AND odeme='veresiye' "
+            "AND musteri_id IS NOT NULL ORDER BY tarih, id"):
+        satislar.setdefault(r[0], []).append((r[1], r[2]))
     sonuc = []
-    for m in db.execute("SELECT * FROM musteri WHERE aktif=1 ORDER BY ad COLLATE NOCASE"):
+    for m in db.execute("SELECT * FROM musteri WHERE aktif=1 ORDER BY lower(ad)").fetchall():
         d = dict(m)
-        d["bakiye"] = musteri_bakiye(db, m["id"])
-        d["vade_bilgi"] = musteri_vade(db, m) if d["bakiye"] > 0 else None
+        kendi = satislar.get(m["id"], [])
+        alacak = tahsilatlar.get(m["id"], 0)
+        d["bakiye"] = m["acilis_kurus"] + sum(s[1] for s in kendi) - alacak
+        d["vade_bilgi"] = _vade_bul(m, alacak, kendi, bugun) if d["bakiye"] > 0 else None
         d["gecikme"] = d["vade_bilgi"]["gecikme"] if d["vade_bilgi"] else 0
         sonuc.append(d)
     return sonuc
 
 
 def uretici_listesi(db):
+    netler = {r[0]: r[1] for r in db.execute("SELECT uretici_id, SUM(net) FROM v_giris WHERE iptal=0 GROUP BY uretici_id")}
+    odemeler = {r[0]: r[1] for r in db.execute("SELECT uretici_id, SUM(kurus) FROM uretici_odeme WHERE iptal=0 GROUP BY uretici_id")}
     sonuc = []
-    for u in db.execute("SELECT * FROM uretici WHERE aktif=1 ORDER BY ad COLLATE NOCASE"):
+    for u in db.execute("SELECT * FROM uretici WHERE aktif=1 ORDER BY lower(ad)").fetchall():
         d = dict(u)
-        d["bakiye"] = uretici_bakiye(db, u["id"])
+        d["bakiye"] = u["acilis_kurus"] + netler.get(u["id"], 0) - odemeler.get(u["id"], 0)
         sonuc.append(d)
     return sonuc
 
@@ -148,7 +165,7 @@ def fiyatlar(db, gun):
     dun = {r["urun_id"]: r for r in db.execute(sql, (onceki,))}
     hal = {r["urun_id"]: r for r in db.execute("SELECT * FROM hal_fiyat WHERE tarih=?", (gun,))}
     sonuc = []
-    for u in db.execute("SELECT * FROM urun WHERE aktif=1 ORDER BY ad COLLATE NOCASE"):
+    for u in db.execute("SELECT * FROM urun WHERE aktif=1 ORDER BY lower(ad)"):
         b, d, h = bugun.get(u["id"]), dun.get(u["id"]), hal.get(u["id"])
         ort = round(b["tutar"] * 1000 / b["miktar"]) if b else None
         d_ort = round(d["tutar"] * 1000 / d["miktar"]) if d else None

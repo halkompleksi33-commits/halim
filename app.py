@@ -1,16 +1,19 @@
-"""Halim: komisyoncu icin yerel kayit ve hesap ekrani."""
+"""Halim: komisyoncu icin kayit ve hesap ekrani."""
+import hmac
 import io
 import os
 import re
 import threading
+import time
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from flask import (Flask, abort, flash, g, redirect, render_template, request, send_file, url_for)
+from flask import (Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for)
 from openpyxl import Workbook
 from openpyxl.styles import Font
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 import aktarim
 import gorsel
@@ -33,9 +36,24 @@ _env_yukle()
 PORT = int(os.environ.get("PORT", "5055"))
 _yazma_kilidi = threading.Lock()
 
+CANLI = vt.canli_mi()
+if os.environ.get("RENDER") and not CANLI:
+    # Render'in kendi diski yeniden baslayinca silinir, kayit kaybetmektense hic acilmasin.
+    raise RuntimeError("DATABASE_URL ayarlanmadan program internette acilamaz.")
+SIFRE = os.environ.get("APP_SIFRE", "")
+CANLI_ADRES = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
+ACIK_SAYFALAR = {"giris_yap", "saglik", "static"}
+EN_FAZLA_DENEME = 5
+KILIT_SURESI = 300
+_denemeler = {}
+
 app = Flask(__name__)
-app.secret_key = os.urandom(32)
+app.secret_key = os.environ.get("HAL_GIZLI") or os.urandom(32)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
+if CANLI:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+    app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+                      PERMANENT_SESSION_LIFETIME=timedelta(days=30))
 app.jinja_env.filters.update(para=h.para, miktar=h.miktar, oran=h.oran, tarih=h.tarih_yaz)
 
 TAHSILAT_SEKILLERI = ["Nakit", "Havale", "Çek", "Senet", "Kart"]
@@ -59,9 +77,16 @@ def kapat(_):
 
 @app.before_request
 def yerel_koruma():
-    """Sadece bu bilgisayardan, sadece kendi sayfalarindan yazma kabul et."""
-    if request.host.split(":")[0] not in ("127.0.0.1", "localhost"):
+    """Sadece kendi adresinden ve kendi sayfalarindan yazma kabul et, internette sifre iste."""
+    if request.endpoint == "saglik":
+        return None
+    if CANLI:
+        if CANLI_ADRES and request.host.split(":")[0] != CANLI_ADRES:
+            abort(403)
+    elif request.host.split(":")[0] not in ("127.0.0.1", "localhost"):
         abort(403)
+    if CANLI and request.endpoint not in ACIK_SAYFALAR and not session.get("girdi"):
+        return redirect(url_for("giris_yap"))
     if request.method == "POST":
         kaynak = request.headers.get("Origin") or request.headers.get("Referer")
         if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
@@ -104,8 +129,65 @@ def cok_buyuk(_):
 
 @app.context_processor
 def ortak():
+    if request.endpoint in ACIK_SAYFALAR:
+        return {}
     return {"bugun": date.today().isoformat(), "ayar": q.ayarlar(db()), "ikon": gorsel.ikon, "ust_menu": gorsel.UST_MENU,
-            "ana_kutular": gorsel.KUTULAR, "sayfa": gorsel.SAYFA.get(request.endpoint, gorsel.VARSAYILAN)}
+            "ana_kutular": gorsel.KUTULAR, "sayfa": gorsel.SAYFA.get(request.endpoint, gorsel.VARSAYILAN), "canli": CANLI}
+
+
+@app.get("/saglik")
+def saglik():
+    return "tamam"
+
+
+@app.route("/giris-yap", methods=["GET", "POST"])
+def giris_yap():
+    if not CANLI:
+        return redirect(url_for("ana"))
+    hata = "" if SIFRE else "Program şifresi henüz ayarlanmamış."
+    if request.method == "POST" and SIFRE:
+        simdi = time.monotonic()
+        for ip in [k for k, (_, bitis) in _denemeler.items() if bitis <= simdi]:
+            del _denemeler[ip]
+        ip = request.remote_addr or ""
+        sayi, bitis = _denemeler.get(ip, (0, simdi + KILIT_SURESI))
+        if sayi >= EN_FAZLA_DENEME:
+            hata = "Çok fazla yanlış deneme oldu. 5 dakika sonra tekrar dene."
+        elif hmac.compare_digest(request.form.get("sifre", "").encode(), SIFRE.encode()):
+            _denemeler.pop(ip, None)
+            session.clear()
+            session["girdi"] = True
+            session.permanent = True
+            return redirect(url_for("ana"))
+        else:
+            _denemeler[ip] = (sayi + 1, bitis)
+            hata = "Şifre yanlış."
+    return render_template("giris_yap.html", hata=hata), (401 if hata and request.method == "POST" else 200)
+
+
+@app.post("/cikis")
+def cikis():
+    session.clear()
+    return redirect(url_for("giris_yap"))
+
+
+@app.get("/yedek/excel")
+def yedek_excel():
+    kitap = Workbook()
+    kitap.remove(kitap.active)
+    for tablo in ("ayar", "uretici", "musteri", "urun", "giris", "giris_kalem", "masraf", "satis", "satis_kalem",
+                  "tahsilat", "uretici_odeme", "gider", "hal_fiyat"):
+        sayfa = kitap.create_sheet(tablo)
+        satirlar = db().execute(f"SELECT * FROM {tablo}").fetchall()
+        if satirlar:
+            sayfa.append(list(satirlar[0].keys()))
+            for s in satirlar:
+                sayfa.append([_guvenli(v) for v in s])
+    akis = io.BytesIO()
+    kitap.save(akis)
+    akis.seek(0)
+    return send_file(akis, as_attachment=True, download_name=f"halim_yedek_{date.today().isoformat()}.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 def bir(sql, args=()):
@@ -165,7 +247,7 @@ def rapor_ay():
         """SELECT tarih, SUM(tutar) satis, SUM(kom) komisyon FROM (
              SELECT s.tarih, sk.tutar_kurus tutar, sk.komisyon_kurus kom
              FROM satis_kalem sk JOIN satis s ON s.id=sk.satis_id AND s.iptal=0
-             WHERE substr(s.tarih,1,7)=?) GROUP BY tarih ORDER BY tarih""", (ay,)).fetchall()
+             WHERE substr(s.tarih,1,7)=?) t GROUP BY tarih ORDER BY tarih""", (ay,)).fetchall()
     return render_template("rapor_ay.html", ay=ay, r=q.rapor(db(), f"{ay}-01", f"{ay}-31"), gunler=gunler)
 
 
@@ -180,8 +262,8 @@ def girisler():
 @app.get("/giris/yeni")
 def giris_yeni():
     return render_template(
-        "giris_yeni.html", ureticiler=db().execute("SELECT * FROM uretici WHERE aktif=1 ORDER BY ad COLLATE NOCASE").fetchall(),
-        urunler=db().execute("SELECT * FROM urun WHERE aktif=1 ORDER BY ad COLLATE NOCASE").fetchall(), masraf_turleri=MASRAF_TURLERI)
+        "giris_yeni.html", ureticiler=db().execute("SELECT * FROM uretici WHERE aktif=1 ORDER BY lower(ad)").fetchall(),
+        urunler=db().execute("SELECT * FROM urun WHERE aktif=1 ORDER BY lower(ad)").fetchall(), masraf_turleri=MASRAF_TURLERI)
 
 
 @app.post("/giris/yeni")
@@ -267,7 +349,7 @@ def satis_yeni():
         "etiket": f"{s['urun_ad']} | {s['uretici_ad']} | {h.tarih_yaz(s['tarih'])} | kalan {h.miktar(s['kalan'])} {s['birim']}",
     } for s in q.stok(db())]
     return render_template("satis_yeni.html", stoklar=stoklar, musteriler=db().execute(
-        "SELECT * FROM musteri WHERE aktif=1 ORDER BY ad COLLATE NOCASE").fetchall())
+        "SELECT * FROM musteri WHERE aktif=1 ORDER BY lower(ad)").fetchall())
 
 
 @app.post("/satis/yeni")
@@ -488,7 +570,7 @@ def urunler():
         db().commit()
         flash("Ürün eklendi.", "tamam")
         return redirect(url_for("urunler"))
-    return render_template("urunler.html", kayitlar=db().execute("SELECT * FROM urun ORDER BY ad COLLATE NOCASE").fetchall(), birimler=BIRIMLER)
+    return render_template("urunler.html", kayitlar=db().execute("SELECT * FROM urun ORDER BY lower(ad)").fetchall(), birimler=BIRIMLER)
 
 
 @app.route("/fiyatlar", methods=["GET", "POST"])
@@ -502,7 +584,7 @@ def fiyatlar():
             dk, yk = h.kurus(d or y, "En düşük fiyat"), h.kurus(y or d, "En yüksek fiyat")
             if dk > yk:
                 raise Hata("En düşük fiyat en yüksekten büyük olamaz.")
-            db().execute("INSERT OR REPLACE INTO hal_fiyat VALUES(?,?,?,?)", (tarih, kimlik(uid), dk, yk))
+            db().execute("INSERT INTO hal_fiyat VALUES(?,?,?,?) ON CONFLICT(tarih,urun_id) DO UPDATE SET en_dusuk_kurus=excluded.en_dusuk_kurus, en_yuksek_kurus=excluded.en_yuksek_kurus", (tarih, kimlik(uid), dk, yk))
         db().commit()
         flash("Hal fiyatları kaydedildi.", "tamam")
         return redirect(url_for("fiyatlar", tarih=tarih))
@@ -650,16 +732,17 @@ def ayarlar():
         if not metin("vade_gun").isdigit():
             raise Hata("Vade gün sayısı olmalı.")
         degerler["vade_gun"] = metin("vade_gun")
-        db().executemany("INSERT OR REPLACE INTO ayar VALUES(?,?)", degerler.items())
+        db().executemany("INSERT INTO ayar VALUES(?,?) ON CONFLICT(anahtar) DO UPDATE SET deger=excluded.deger", degerler.items())
         db().commit()
         flash("Ayarlar kaydedildi.", "tamam")
         return redirect(url_for("ayarlar"))
-    return render_template("ayarlar.html", giris_degeri=h.giris_degeri, yedek=vt.yedek_klasoru())
+    return render_template("ayarlar.html", giris_degeri=h.giris_degeri, yedek=None if CANLI else vt.yedek_klasoru())
 
 
 def calistir():
     vt.hazirla()
-    vt.gunluk_yedek()
+    if not CANLI:
+        vt.gunluk_yedek()
     # Tek is parcacikli sunucu, tarayicinin bos actigi baglantilarda kilitlenir.
     app.run(host="127.0.0.1", port=PORT, debug=False, threaded=True)
 

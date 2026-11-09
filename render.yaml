@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: halim
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements-canli.txt
+    startCommand: gunicorn wsgi:app --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
+    healthCheckPath: /saglik
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_SIFRE
+        sync: false
+      - key: HAL_GIZLI
+        generateValue: true

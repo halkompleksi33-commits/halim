@@ -30,6 +30,16 @@ Python, Flask, SQLite, openpyxl. Sadece bu bilgisayardan açılır, dış servis
 
 İsteğe bağlı ayarlar `.env.example` dosyasında anlatılıyor.
 
+## İnternette çalıştırma (Render)
+
+`render.yaml` hazırdır. Render açılışta iki bilgi ister:
+
+- `DATABASE_URL`: Kayıtların durduğu ücretsiz Postgres servisinin bağlantı adresi.
+- `APP_SIFRE`: Programa girerken sorulacak şifre.
+
+`DATABASE_URL` yoksa program Render'da bilerek açılmaz, kayıtlar kaybolmasın diye.
+İnternetteki ve bilgisayardaki kayıtlar birbirinden ayrıdır.
+
 ## Hesap kuralları
 
 - Para kuruş, miktar binde birim, oran onbinde olarak tam sayı tutulur.

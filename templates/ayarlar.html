@@ -17,5 +17,8 @@
 <label>KDV %<input name="kdv_bp" inputmode="decimal" value="{{ giris_degeri(ayar.kdv_bp|int,100) }}" required><small>Satış fiyatının içinde sayılır.</small></label>
 <label>Müşteri vadesi (gün)<input name="vade_gun" inputmode="numeric" value="{{ ayar.vade_gun }}" required><small>Yeni müşteride hazır gelen süre.</small></label></div>
 <button class="ana-dugme">Kaydet</button></form>
-<p class="soluk">Otomatik yedekler program her açıldığında alınır, son 30 gün saklanır: {{ yedek }}</p>
+<h2>Yedek</h2>
+{% if yedek %}<p class="soluk">Otomatik yedekler program her açıldığında alınır, son 30 gün saklanır: {{ yedek }}</p>{% endif %}
+<p class="aciklama">Bütün kayıtlarını Excel olarak indirip kendi bilgisayarında sakla. Haftada bir indirmen iyi olur.</p>
+<p><a class="dugme ikincil" href="{{ url_for('yedek_excel') }}">Bütün kayıtları indir</a></p>
 {% endblock %}

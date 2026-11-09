@@ -1,7 +1,10 @@
 """Veri dosyasi, tablolar ve otomatik yedek."""
 import os
+import re
 import sqlite3
+import time
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 PROJE = Path(__file__).resolve().parent
@@ -29,7 +32,104 @@ def dosya_yolu():
     return veri_klasoru() / "hal.db"
 
 
+def canli_mi():
+    return bool(os.environ.get("DATABASE_URL"))
+
+
+class Satir:
+    """Sonuc satiri: sira numarasi ya da sutun adiyla okunur, iki veri motorunda ayni davranir."""
+    __slots__ = ("_adlar", "_degerler")
+
+    def __init__(self, adlar, degerler):
+        self._adlar = adlar
+        self._degerler = degerler
+
+    def keys(self):
+        return list(self._adlar)
+
+    def __getitem__(self, anahtar):
+        if isinstance(anahtar, str):
+            return self._degerler[self._adlar[anahtar]]
+        return self._degerler[anahtar]
+
+    def __iter__(self):
+        return iter(self._degerler)
+
+    def __len__(self):
+        return len(self._degerler)
+
+
+class _PgImlec:
+    def __init__(self, imlec, lastrowid=None, satir=None):
+        self._imlec = imlec
+        self.lastrowid = lastrowid
+        self._adlar = {k.name: i for i, k in enumerate(imlec.description)} if imlec.description else {}
+
+    def _satir(self, ham):
+        # Toplamlar ondalik tipte gelir, para tam sayi kalsin.
+        return Satir(self._adlar, tuple(int(v) if isinstance(v, Decimal) else v for v in ham))
+
+    def fetchone(self):
+        ham = self._imlec.fetchone()
+        return None if ham is None else self._satir(ham)
+
+    def fetchall(self):
+        return [self._satir(h) for h in self._imlec.fetchall()]
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+
+_ID_TABLOLARI = {"uretici", "musteri", "urun", "giris", "giris_kalem", "masraf", "satis", "satis_kalem",
+                 "tahsilat", "uretici_odeme", "gider"}
+
+
+class _PgBaglanti:
+    def __init__(self, baglanti):
+        self._b = baglanti
+
+    @staticmethod
+    def _cevir(sql):
+        return sql.replace("%", "%%").replace("?", "%s")
+
+    def execute(self, sql, args=()):
+        metin = self._cevir(sql)
+        m = re.match(r"\s*INSERT INTO (\w+)", sql)
+        donuslu = bool(m and m.group(1) in _ID_TABLOLARI)
+        if donuslu:
+            metin += " RETURNING id"
+        imlec = self._b.cursor()
+        imlec.execute(metin, tuple(args))
+        if donuslu:
+            return _PgImlec(imlec, lastrowid=imlec.fetchone()[0])
+        return _PgImlec(imlec)
+
+    def executemany(self, sql, satirlar):
+        satirlar = [tuple(s) for s in satirlar]
+        if satirlar:
+            self._b.cursor().executemany(self._cevir(sql), satirlar)
+
+    def commit(self):
+        self._b.commit()
+
+    def rollback(self):
+        self._b.rollback()
+
+    def close(self):
+        self._b.close()
+
+
 def baglan():
+    if canli_mi():
+        import psycopg
+        # Havuzlu baglantida hazir sorgu onbellegi hata verir, kapali tutulur.
+        # Uyuyan veri servisi ilk baglantiyi dusurebilir, bir kez daha denenir.
+        try:
+            baglanti = psycopg.connect(os.environ["DATABASE_URL"], prepare_threshold=None, connect_timeout=20)
+        except psycopg.OperationalError:
+            time.sleep(1)
+            baglanti = psycopg.connect(os.environ["DATABASE_URL"], prepare_threshold=None, connect_timeout=20)
+        return _PgBaglanti(baglanti)
     db = sqlite3.connect(dosya_yolu())
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys = ON")
@@ -133,7 +233,7 @@ SELECT k.id, k.giris_id, g.tarih, g.uretici_id, ur.ad AS uretici_ad, g.plaka,
   k.urun_id, u.ad AS urun_ad, u.birim, k.kunye_no, k.kasa, k.miktar, k.fire,
   COALESCE(s.satilan,0) AS satilan, COALESCE(s.satilan_kasa,0) AS satilan_kasa,
   k.miktar-k.fire-COALESCE(s.satilan,0) AS kalan,
-  MAX(k.kasa-COALESCE(s.satilan_kasa,0),0) AS kalan_kasa
+  CASE WHEN k.kasa-COALESCE(s.satilan_kasa,0)>0 THEN k.kasa-COALESCE(s.satilan_kasa,0) ELSE 0 END AS kalan_kasa
 FROM giris_kalem k
 JOIN giris g ON g.id=k.giris_id AND g.iptal=0
 JOIN uretici ur ON ur.id=g.uretici_id
@@ -163,8 +263,14 @@ VARSAYILAN = {
 def hazirla():
     db = baglan()
     try:
-        db.executescript(TABLOLAR + GORUNUMLER)
-        db.executemany("INSERT OR IGNORE INTO ayar VALUES(?,?)", VARSAYILAN.items())
+        if canli_mi():
+            sema = TABLOLAR.replace("id INTEGER PRIMARY KEY", "id BIGSERIAL PRIMARY KEY").replace(" INTEGER", " BIGINT")
+            for komut in (sema + GORUNUMLER).split(";"):
+                if komut.strip():
+                    db.execute(komut)
+        else:
+            db.executescript(TABLOLAR + GORUNUMLER)
+        db.executemany("INSERT INTO ayar VALUES(?,?) ON CONFLICT(anahtar) DO NOTHING", VARSAYILAN.items())
         db.commit()
     finally:
         db.close()

@@ -21,6 +21,7 @@
     </a>
     {% endfor %}
   </nav>
+  {% if canli %}<form method="post" action="{{ url_for('cikis') }}"><button class="ikincil">Çıkış yap</button></form>{% endif %}
 </header>
 <main>
   {% for tur, mesaj in get_flashed_messages(with_categories=true) %}
