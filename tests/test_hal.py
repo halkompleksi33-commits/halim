@@ -272,6 +272,13 @@ class AkisTest(unittest.TestCase):
         self.assertIn("satis_kalem", kitap.sheetnames)
         self.assertEqual(kitap["musteri"]["B2"].value, "Manav Ayşe")
 
+    def test_hizli_ekle_menusu(self):
+        sayfa = self.c.get("/stok").get_data(as_text=True)
+        self.assertLess(sayfa.index('href="/stok"'), sayfa.index('id="hizli-dugme"'))
+        for yazi, adres in (("Müstahsil ekle", "/uretici/yeni"), ("Müşteri ekle", "/musteri/yeni"), ("Ürün ekle", "/urunler"), ("Gider ekle", "/giderler")):
+            self.assertIn(yazi, sayfa)
+            self.assertIn(f'href="{adres}"', sayfa)
+
     def test_notlar(self):
         self.assertEqual(self.c.get("/notlar").get_json(), [])
         self.assertEqual(self.c.post("/notlar", data={"metin": "   "}).status_code, 400)

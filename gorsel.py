@@ -59,6 +59,14 @@ def _k(adres, ad, ikon_ad, renk, aciklama):
     return {"adres": adres, "ad": ad, "ikon": ikon_ad, "renk": renk, "aciklama": aciklama}
 
 
+HIZLI_EKLE = [
+    _k("uretici_yeni", "Müstahsil ekle", "uretici", "yesil", "Malını sattığın yeni üreticiyi yaz."),
+    _k("musteri_yeni", "Müşteri ekle", "dukkan", "mavi", "Yeni alıcıyı ve eski borcunu yaz."),
+    _k("urunler", "Ürün ekle", "urun", "kirmizi", "Domates, biber gibi yeni ürün aç."),
+    _k("giderler", "Gider ekle", "cuzdan", "turuncu", "Kira, elektrik gibi masrafını yaz."),
+]
+
+
 KUTULAR = [
     ("Her gün yaptıkların", [
         _k("giris_yeni", "Mal geldi", "kamyon", "yesil", "Üreticiden gelen malı kasa ve kilosuyla yaz."),

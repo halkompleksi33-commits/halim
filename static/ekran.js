@@ -213,3 +213,26 @@
     kullanilan.prompt();
   });
 })();
+
+(function () {
+  var kutu = document.getElementById("hizli");
+  if (!kutu) return;
+  var dugme = document.getElementById("hizli-dugme");
+  var menu = document.getElementById("hizli-menu");
+  function ac(durum) {
+    menu.hidden = !durum;
+    dugme.setAttribute("aria-expanded", String(durum));
+    if (durum) {
+      menu.style.left = "0";
+      var tasma = menu.getBoundingClientRect().right - (document.documentElement.clientWidth - 16);
+      if (tasma > 0) menu.style.left = -tasma + "px";
+    }
+  }
+  dugme.addEventListener("click", function () { ac(menu.hidden); });
+  document.addEventListener("click", function (e) {
+    if (!menu.hidden && !kutu.contains(e.target)) ac(false);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !menu.hidden) { ac(false); dugme.focus(); }
+  });
+})();

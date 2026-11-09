@@ -131,7 +131,7 @@ def cok_buyuk(_):
 def ortak():
     if request.endpoint in ACIK_SAYFALAR:
         return {}
-    return {"bugun": date.today().isoformat(), "ayar": q.ayarlar(db()), "ikon": gorsel.ikon, "ust_menu": gorsel.UST_MENU,
+    return {"bugun": date.today().isoformat(), "ayar": q.ayarlar(db()), "ikon": gorsel.ikon, "ust_menu": gorsel.UST_MENU, "hizli_ekle": gorsel.HIZLI_EKLE,
             "ana_kutular": gorsel.KUTULAR, "sayfa": gorsel.SAYFA.get(request.endpoint, gorsel.VARSAYILAN), "canli": CANLI}
 
 

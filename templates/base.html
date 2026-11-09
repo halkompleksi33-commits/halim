@@ -22,6 +22,16 @@
       {{ ikon(m.ikon, m.renk) }}<b>{{ m.ad }}</b><small>{{ m.aciklama }}</small>
     </a>
     {% endfor %}
+    <div class="hizli" id="hizli">
+      <button type="button" class="hizli-dugme" id="hizli-dugme" aria-expanded="false" aria-controls="hizli-menu">
+        {{ ikon('arti', 'yesil') }}<b>Ekle</b><small>Hızlı kısayollar</small>
+      </button>
+      <div class="hizli-menu" id="hizli-menu" hidden>
+        {% for k in hizli_ekle %}
+        <a href="{{ url_for(k.adres) }}">{{ ikon(k.ikon, k.renk) }}<b>{{ k.ad }}</b><small>{{ k.aciklama }}</small></a>
+        {% endfor %}
+      </div>
+    </div>
   </nav>
   {% if canli %}<form method="post" action="{{ url_for('cikis') }}"><button class="ikincil">Çıkış yap</button></form>
   <button type="button" class="ust-indir" id="masaustu" data-sw="{{ url_for('servis_isci') }}">{{ ikon('indir', 'mavi') }}<b>Masaüstüne indir</b><small>Kısayol oluşturur</small></button>{% endif %}
