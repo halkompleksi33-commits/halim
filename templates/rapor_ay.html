@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Aylık kazanç <small>{{ ay[5:] }}.{{ ay[:4] }}</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<form class="satir yazdirma-yok"><input type="month" name="ay" value="{{ ay }}" aria-label="Ay"><button>Göster</button><button type="button" data-yazdir>Yazdır</button></form></div>
+<div class="kartlar">
+  <div class="kart">{{ ikon('sepet','kirmizi') }}<span>Toplam satış</span><b>{{ r.satis|para }} ₺</b><small>Sattığın bütün malların tutarı.</small></div>
+  <div class="kart">{{ ikon('yuzde','turuncu') }}<span>Komisyon geliri</span><b>{{ r.komisyon|para }} ₺</b><small>Ay boyunca aldığın komisyon.</small></div>
+  <div class="kart">{{ ikon('cuzdan','turuncu') }}<span>Giderler</span><b>{{ r.gider|para }} ₺</b><small>Ay boyunca yaptığın masraflar.</small></div>
+  <div class="kart vurgu">{{ ikon('bozuk','yesil') }}<span>Kalan kazanç</span><b>{{ r.kazanc|para }} ₺</b><small>Komisyondan giderler düşünce kalan.</small></div>
+</div>
+<div class="iki">
+<section><h2>Günlere göre</h2>
+{% if gunler %}<table><thead><tr><th>Gün</th><th class="sag">Satış</th><th class="sag">Komisyon</th></tr></thead><tbody>
+{% for d in gunler %}<tr><td><a href="{{ url_for('rapor_gun', tarih=d.tarih) }}">{{ d.tarih|tarih }}</a></td><td class="sag">{{ d.satis|para }} ₺</td><td class="sag">{{ d.komisyon|para }} ₺</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Bu ay satış yok.</p>{% endif %}</section>
+<section><h2>Giderler</h2>
+{% if r.gider_turleri %}<table><tbody>{% for t in r.gider_turleri %}<tr><td>{{ t.tur }}</td><td class="sag">{{ t.kurus|para }} ₺</td></tr>{% endfor %}</tbody></table>{% else %}<p class="soluk">Bu ay gider yok.</p>{% endif %}
+<h2>Ürün bazında</h2>{% include "_rapor_urun.html" %}</section>
+</div>
+{% endblock %}

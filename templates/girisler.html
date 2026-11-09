@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Mal girişleri</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div><a class="dugme" href="{{ url_for('giris_yeni') }}">+ Mal girişi</a></div>
+{% if kayitlar %}<table><thead><tr><th>No</th><th>Tarih</th><th>Üretici</th><th>Plaka</th><th class="sag">Satılan</th><th class="sag">Üreticiye kalan</th></tr></thead><tbody>
+{% for k in kayitlar %}<tr><td><a href="{{ url_for('giris_detay', gid=k.id) }}">{{ k.id }}</a></td><td>{{ k.tarih|tarih }}</td><td>{{ k.uretici_ad }}</td><td>{{ k.plaka }}</td><td class="sag">{{ k.brut|para }} ₺</td><td class="sag">{{ k.net|para }} ₺</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Henüz mal girişi yok.</p>{% endif %}
+{% endblock %}

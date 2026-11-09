@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block baslik %}Halim{% endblock %}</title>
+<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='stil.css') }}">
+</head>
+<body>
+<header class="ust-bant yazdirma-yok">
+  <a class="marka" href="{{ url_for('ana') }}">
+    <img src="{{ url_for('static', filename='logo.svg') }}" alt="Halim logosu">
+    <b>Halim</b>
+    <small>Halde her hesabın yanında</small>
+  </a>
+  <nav class="ust-menu" aria-label="Ana menü">
+    {% for m in ust_menu %}
+    <a href="{{ url_for(m.adres) }}" {% if request.endpoint == m.adres %}class="secili" aria-current="page"{% endif %}>
+      {{ ikon(m.ikon, m.renk) }}<b>{{ m.ad }}</b><small>{{ m.aciklama }}</small>
+    </a>
+    {% endfor %}
+  </nav>
+</header>
+<main>
+  {% for tur, mesaj in get_flashed_messages(with_categories=true) %}
+    <div class="bildirim {{ tur }} yazdirma-yok">{{ mesaj }}</div>
+  {% endfor %}
+  {% block icerik %}{% endblock %}
+</main>
+<script src="{{ url_for('static', filename='ekran.js') }}"></script>
+</body>
+</html>

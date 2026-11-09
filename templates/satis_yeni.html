@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Yeni satış</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+{% if not stoklar %}
+<div class="bildirim hata">Satılacak mal yok. Önce <a href="{{ url_for('giris_yeni') }}">mal girişi</a> yapmalısın.</div>
+{% else %}
+<form method="post" class="form" id="satis-form">
+  <div class="alanlar">
+    <label>Tarih<input type="date" name="tarih" value="{{ bugun }}" required></label>
+    <label>Ödeme<select name="odeme" id="odeme"><option value="veresiye">Veresiye</option><option value="pesin">Peşin</option></select><small>Para hemen geldiyse Peşin seç.</small></label>
+    <label>Müşteri<select name="musteri_id" id="musteri"><option value="">Seç</option>{% for m in musteriler %}<option value="{{ m.id }}">{{ m.ad }}</option>{% endfor %}</select><small>Veresiyede seçmek zorunlu.</small></label>
+  </div>
+  {% if not musteriler %}<p class="soluk">Veresiye satış için önce <a href="{{ url_for('musteri_yeni') }}">müşteri ekle</a>.</p>{% endif %}
+  <h2>Satılan mal</h2>
+  <table class="giris-tablo"><thead><tr><th>Mal</th><th>Kasa<small>Kaç kasa gitti</small></th><th>Miktar<small>Kilo ya da adet</small></th><th>Birim fiyat ₺ (KDV dahil)</th><th class="sag">Tutar</th><th></th></tr></thead>
+  <tbody id="satirlar"></tbody>
+  <tfoot><tr class="toplam"><td colspan="4">Toplam</td><td class="sag"><span id="genel-toplam">0,00</span> ₺</td><td></td></tr></tfoot></table>
+  <template id="satirlar-sablon"><tr>
+    <td><select name="kalem_id" class="mal-sec" required aria-label="Mal"><option value="">Seç</option>{% for s in stoklar %}<option value="{{ s.id }}" data-kalan="{{ s.kalan }}" data-birim="{{ s.birim }}">{{ s.etiket }}</option>{% endfor %}</select></td>
+    <td><input name="kasa" inputmode="numeric" class="kisa" aria-label="Kasa"></td>
+    <td><input name="miktar" inputmode="decimal" class="kisa hesap-alan" required aria-label="Miktar"></td>
+    <td><input name="fiyat" inputmode="decimal" class="kisa hesap-alan" required aria-label="Birim fiyat"></td>
+    <td class="sag satir-tutar">0,00</td><td><button type="button" class="satir-sil" aria-label="Satırı sil">×</button></td>
+  </tr></template>
+  <button type="button" class="ikincil" data-satir-ekle="satirlar">+ Mal ekle</button>
+  <label>Not<input name="notlar"></label>
+  <button class="ana-dugme">Kaydet</button>
+</form>
+{% endif %}
+{% endblock %}

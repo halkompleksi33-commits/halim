@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Ürünler</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<form method="post" class="satir kutu"><input name="ad" placeholder="Ürün adı" required aria-label="Ürün adı"><select name="birim" aria-label="Birim">{% for b in birimler %}<option>{{ b }}</option>{% endfor %}</select><button>Ekle</button></form>
+{% if kayitlar %}<table><thead><tr><th>Ürün</th><th>Birim</th></tr></thead><tbody>{% for k in kayitlar %}<tr><td>{{ k.ad }}</td><td>{{ k.birim }}</td></tr>{% endfor %}</tbody></table>{% else %}<p class="soluk">Henüz ürün yok.</p>{% endif %}
+{% endblock %}

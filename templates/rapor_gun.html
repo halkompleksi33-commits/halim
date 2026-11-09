@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Gün sonu raporu <small>{{ gun|tarih }}</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<form class="satir yazdirma-yok"><input type="date" name="tarih" value="{{ gun }}" aria-label="Tarih"><button>Göster</button><button type="button" data-yazdir>Yazdır</button></form></div>
+{% include "_rapor_kart.html" %}
+<div class="iki">
+<section><h2>Ürün bazında</h2>{% include "_rapor_urun.html" %}</section>
+<section><h2>Elde kalan mal</h2>
+{% if stok %}<table><thead><tr><th>Ürün</th><th>Üretici</th><th class="sag">Kasa</th><th class="sag">Kalan</th></tr></thead><tbody>
+{% for s in stok %}<tr><td>{{ s.urun_ad }}</td><td>{{ s.uretici_ad }}</td><td class="sag">{{ s.kalan_kasa }}</td><td class="sag">{{ s.kalan|miktar }} {{ s.birim }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Elde mal yok.</p>{% endif %}</section>
+</div>
+<h2>Satışlar</h2>
+{% if satislar %}<table><thead><tr><th>No</th><th>Müşteri</th><th>Ödeme</th><th class="sag">Tutar</th></tr></thead><tbody>
+{% for s in satislar %}<tr><td><a href="{{ url_for('satis_detay', sid=s.id) }}">{{ s.id }}</a></td><td>{{ s.musteri_ad or 'Peşin müşteri' }}</td><td>{{ 'Peşin' if s.odeme=='pesin' else 'Veresiye' }}</td><td class="sag">{{ s.toplam|para }} ₺</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Bu gün satış yok.</p>{% endif %}
+{% endblock %}

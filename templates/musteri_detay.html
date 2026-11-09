@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>{{ m.ad }} <small>Müşteri ekstresi</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<div class="satir yazdirma-yok"><button data-yazdir>Yazdır</button><a class="dugme ikincil" href="{{ url_for('musteri_duzenle', mid=m.id) }}">Düzenle</a></div></div>
+<div class="kartlar"><div class="kart vurgu">{{ ikon('defter','mavi') }}<span>Kalan borç</span><b>{{ bakiye|para }} ₺</b><small>Bu müşterinin sana olan borcu.</small></div>
+{% if vade %}<div class="kart">{{ ikon('takvim','mor') }}<span>Vade</span><b>{{ vade.vade|tarih }}</b><small>En eski borcun ödenmesi gereken gün.</small></div><div class="kart">{{ ikon('saat','kirmizi') }}<span>Gecikme</span><b class="{{ 'kirmizi' if vade.gecikme }}">{{ vade.gecikme }} gün</b><small>Vadeyi kaç gün geçtiği.</small></div>{% endif %}
+{% if m.telefon %}<div class="kart">{{ ikon('telefon','gri') }}<span>Telefon</span><b>{{ m.telefon }}</b><small>Aramak için numarası.</small></div>{% endif %}</div>
+<form method="post" action="{{ url_for('tahsilat_ekle', mid=m.id) }}" class="satir yazdirma-yok kutu">
+<b>Tahsilat al</b><input type="date" name="tarih" value="{{ bugun }}" required aria-label="Tarih"><input name="tutar" inputmode="decimal" placeholder="Tutar ₺" required aria-label="Tutar"><select name="sekil" aria-label="Şekil">{% for s in sekiller %}<option>{{ s }}</option>{% endfor %}</select><input name="notlar" placeholder="Not" aria-label="Not"><button>Kaydet</button></form>
+{% if hareketler %}<table><thead><tr><th>Tarih</th><th>Açıklama</th><th class="sag">Borç</th><th class="sag">Ödeme</th><th class="sag">Bakiye</th><th class="yazdirma-yok"></th></tr></thead><tbody>
+{% for h in hareketler %}<tr><td>{{ h.tarih|tarih }}</td><td>{% if h.bag %}<a href="{{ url_for('satis_detay', sid=h.bag) }}">{{ h.aciklama }}</a>{% else %}{{ h.aciklama }}{% endif %}</td><td class="sag">{{ h.artis|para if h.artis }}</td><td class="sag">{{ h.azalis|para if h.azalis }}</td><td class="sag">{{ h.bakiye|para }}</td>
+<td class="yazdirma-yok">{% if h.tahsilat_id %}<form method="post" action="{{ url_for('tahsilat_iptal', tid=h.tahsilat_id) }}" data-onay="Bu tahsilat iptal edilsin mi?"><button class="kucuk">İptal</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Hareket yok.</p>{% endif %}
+{% endblock %}

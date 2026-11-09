@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Sütunları eşleştir</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<p>Dosyada {{ toplam }} satır bulundu. Kontrol edip onayla. Aynı isimli kayıtlar atlanır, mevcut kayıtlar değişmez.</p>
+<form method="post" action="{{ url_for('aktar_onay') }}" class="form">
+<input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="tur" value="{{ tur }}">
+<div class="alanlar">{% for alan, etiket, _ in alanlar %}<label>{{ etiket }}<select name="{{ alan }}" {% if alan=='ad' %}required{% endif %}><option value="">Yok</option>{% for b in basliklar %}<option value="{{ loop.index0 }}" {% if tahmin.get(alan)==loop.index0 %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>{% endfor %}</div>
+<h2>Dosyanın ilk satırları</h2>
+<div class="kaydir"><table class="sik"><thead><tr>{% for b in basliklar %}<th>{{ b }}</th>{% endfor %}</tr></thead><tbody>{% for s in ornek %}<tr>{% for v in s %}<td>{{ v if v is not none }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+<button class="ana-dugme">Aktar</button></form>
+{% endblock %}

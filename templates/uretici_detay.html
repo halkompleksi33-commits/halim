@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>{{ u.ad }} <small>Üretici hesabı, komisyon %{{ u.komisyon_bp|oran }}</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<div class="satir yazdirma-yok"><button data-yazdir>Yazdır</button><a class="dugme ikincil" href="{{ url_for('uretici_duzenle', uid=u.id) }}">Düzenle</a></div></div>
+<div class="kartlar"><div class="kart vurgu">{{ ikon('uretici','yesil') }}<span>Ona borcun</span><b>{{ bakiye|para }} ₺</b><small>Bu üreticiye ödemen gereken para.</small></div></div>
+<form method="post" action="{{ url_for('odeme_ekle', uid=u.id) }}" class="satir yazdirma-yok kutu">
+<b>Ödeme yap</b><input type="date" name="tarih" value="{{ bugun }}" required aria-label="Tarih"><input name="tutar" inputmode="decimal" placeholder="Tutar ₺" required aria-label="Tutar"><select name="sekil" aria-label="Şekil">{% for s in sekiller %}<option>{{ s }}</option>{% endfor %}</select><input name="notlar" placeholder="Not" aria-label="Not"><button>Kaydet</button></form>
+{% if hareketler %}<table><thead><tr><th>Tarih</th><th>Açıklama</th><th class="sag">Hak ediş</th><th class="sag">Ödeme</th><th class="sag">Bakiye</th><th class="yazdirma-yok"></th></tr></thead><tbody>
+{% for h in hareketler %}<tr><td>{{ h.tarih|tarih }}</td><td>{% if h.bag %}<a href="{{ url_for('giris_detay', gid=h.bag) }}">{{ h.aciklama }}</a>{% else %}{{ h.aciklama }}{% endif %}</td><td class="sag">{{ h.artis|para if h.artis }}</td><td class="sag">{{ h.azalis|para if h.azalis }}</td><td class="sag">{{ h.bakiye|para }}</td>
+<td class="yazdirma-yok">{% if h.odeme_id %}<form method="post" action="{{ url_for('odeme_iptal', oid=h.odeme_id) }}" data-onay="Bu ödeme iptal edilsin mi?"><button class="kucuk">İptal</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Hareket yok.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Excel'den aktar</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<p>Müşteri, üretici ya da ürün listeni buradan alabilirsin. Kalan borçlar da gelir. Geçmiş satış satırları aktarılmaz.</p>
+<form method="post" enctype="multipart/form-data" class="form"><div class="alanlar">
+<label>Ne aktaracaksın?<select name="tur" required><option value="musteri">Müşteriler</option><option value="uretici">Üreticiler</option><option value="urun">Ürünler</option></select><small>Her liste için ayrı ayrı yükle.</small></label>
+<label>Excel dosyası<input type="file" name="dosya" accept=".xlsx" required><small>Dosyanın sonu .xlsx olmalı.</small></label></div>
+<button class="ana-dugme">Devam</button></form>
+{% endblock %}

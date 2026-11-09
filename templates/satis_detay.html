@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Satış fişi <small>No {{ s.id }}</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<div class="satir yazdirma-yok"><button data-yazdir>Yazdır</button>
+{% if not s.iptal %}<form method="post" action="{{ url_for('satis_iptal', sid=s.id) }}" data-onay="Bu satış iptal edilsin mi? Mal stoğa geri döner."><button class="tehlike">İptal et</button></form>{% endif %}</div></div>
+{% if s.iptal %}<div class="bildirim hata">Bu satış iptal edildi.</div>{% endif %}
+<div class="iki belge-ust">
+<p><b>Satıcı</b><br>{{ ayar.firma_ad or 'Ayarlardan firma bilgini gir' }}<br>{% if ayar.firma_vergi_no %}VKN: {{ ayar.firma_vergi_no }} {{ ayar.firma_vergi_dairesi }}<br>{% endif %}{{ ayar.firma_adres }}</p>
+<p><b>Alıcı</b><br>{% if musteri %}<a href="{{ url_for('musteri_detay', mid=musteri.id) }}">{{ musteri.ad }}</a><br>{% if musteri.vergi_no %}VKN: {{ musteri.vergi_no }} {{ musteri.vergi_dairesi }}<br>{% endif %}{{ musteri.adres }}{% else %}Peşin müşteri{% endif %}<br>Tarih: {{ s.tarih|tarih }} | {{ 'Peşin' if s.odeme=='pesin' else 'Veresiye' }}</p>
+</div>
+<table><thead><tr><th>Ürün</th><th>Künye no</th><th>Plaka</th><th class="sag">Kasa</th><th class="sag">Miktar</th><th class="sag">Fiyat</th><th class="sag">Matrah</th><th class="sag">KDV</th><th class="sag">Toplam</th></tr></thead><tbody>
+{% for d in satirlar %}<tr><td>{{ d.urun }}</td><td>{% if d.kunye_no %}{{ d.kunye_no }} <button type="button" class="kucuk yazdirma-yok" data-kopyala="{{ d.kunye_no }}">Kopyala</button>{% else %}<span class="kirmizi">Eksik</span>{% endif %}</td><td>{{ d.plaka }}</td><td class="sag">{{ d.kasa }}</td><td class="sag">{{ d.miktar|miktar }} {{ d.birim }}</td><td class="sag">{{ d.fiyat_kurus|para }}</td><td class="sag">{{ d.matrah|para }}</td><td class="sag">{{ d.kdv|para }} (%{{ d.kdv_bp|oran }})</td><td class="sag">{{ d.tutar_kurus|para }}</td></tr>{% endfor %}
+</tbody>
+<tfoot><tr class="toplam"><td colspan="6">Toplam</td><td class="sag">{{ matrah|para }}</td><td class="sag">{{ kdv|para }}</td><td class="sag">{{ s.toplam|para }} ₺</td></tr></tfoot></table>
+{% if s.notlar %}<p>Not: {{ s.notlar }}</p>{% endif %}
+{% endblock %}

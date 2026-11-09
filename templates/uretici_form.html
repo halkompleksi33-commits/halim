@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>{{ 'Üreticiyi düzenle' if u else 'Yeni üretici' }}</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<form method="post" class="form"><div class="alanlar">
+<label>Ad / Ünvan<input name="ad" value="{{ u.ad if u }}" required></label>
+<label>Telefon<input name="telefon" value="{{ u.telefon if u }}"></label>
+<label>TC / Vergi no<input name="kimlik_no" value="{{ u.kimlik_no if u }}"></label>
+<label>Komisyon %<input name="komisyon" inputmode="decimal" value="{{ komisyon }}" required><small>Satıştan senin alacağın yüzde.</small></label>
+<label>Devreden borcun ₺<input name="acilis" inputmode="decimal" value="{{ acilis if u else '' }}" placeholder="0"><small>Programdan önce ona olan borcun.</small></label>
+</div>
+<label>Adres<input name="adres" value="{{ u.adres if u }}"></label>
+<label>Not<input name="notlar" value="{{ u.notlar if u }}"></label>
+<button class="ana-dugme">Kaydet</button></form>
+{% endblock %}

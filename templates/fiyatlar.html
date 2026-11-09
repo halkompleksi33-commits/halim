@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Fiyatlar <small>{{ gun|tarih }}</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<form class="satir"><input type="date" name="tarih" value="{{ gun }}" aria-label="Tarih"><button>Göster</button></form></div>
+{% if kayitlar %}
+<form method="post"><input type="hidden" name="tarih" value="{{ gun }}">
+<table><thead><tr><th>Ürün</th><th class="sag">Senin en düşük</th><th class="sag">Senin en yüksek</th><th class="sag">Ortalama</th><th class="sag">Düne göre</th><th>Hal en düşük ₺</th><th>Hal en yüksek ₺</th></tr></thead><tbody>
+{% for k in kayitlar %}<tr><td>{{ k.ad }} <small>/{{ k.birim }}</small><input type="hidden" name="urun_id" value="{{ k.id }}"></td>
+<td class="sag">{{ k.en_dusuk|para if k.en_dusuk is not none }}</td><td class="sag">{{ k.en_yuksek|para if k.en_yuksek is not none }}</td><td class="sag">{{ k.ortalama|para if k.ortalama is not none }}</td>
+<td class="sag {{ 'yesil' if k.fark and k.fark>0 else ('kirmizi' if k.fark and k.fark<0) }}">{% if k.fark is not none %}{{ '+' if k.fark>0 }}{{ k.fark|para }}{% endif %}</td>
+<td><input name="dusuk" inputmode="decimal" class="kisa" aria-label="Hal en düşük" value="{{ giris_degeri(k.hal_dusuk,100) if k.hal_dusuk is not none }}"></td>
+<td><input name="yuksek" inputmode="decimal" class="kisa" aria-label="Hal en yüksek" value="{{ giris_degeri(k.hal_yuksek,100) if k.hal_yuksek is not none }}"></td></tr>{% endfor %}
+</tbody></table><p><button class="ana-dugme">Hal fiyatlarını kaydet</button></p></form>
+{% else %}<p class="soluk">Önce <a href="{{ url_for('urunler') }}">ürün ekle</a>.</p>{% endif %}
+{% endblock %}

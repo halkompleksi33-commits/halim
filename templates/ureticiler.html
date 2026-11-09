@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Üreticiler</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div><a class="dugme" href="{{ url_for('uretici_yeni') }}">+ Üretici</a></div>
+{% if kayitlar %}<table><thead><tr><th>Üretici</th><th>Telefon</th><th class="sag">Komisyon</th><th class="sag">Ona borcun</th></tr></thead><tbody>
+{% for u in kayitlar %}<tr><td><a href="{{ url_for('uretici_detay', uid=u.id) }}">{{ u.ad }}</a></td><td>{{ u.telefon }}</td><td class="sag">%{{ u.komisyon_bp|oran }}</td><td class="sag">{{ u.bakiye|para }} ₺</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Henüz üretici yok. Elle ekleyebilir ya da <a href="{{ url_for('aktar') }}">Excel'den aktarabilirsin</a>.</p>{% endif %}
+{% endblock %}

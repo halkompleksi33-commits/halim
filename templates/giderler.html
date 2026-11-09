@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>İşletme giderleri</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<form method="post" class="satir kutu"><input type="date" name="tarih" value="{{ bugun }}" required aria-label="Tarih"><select name="tur" aria-label="Tür">{% for t in turler %}<option>{{ t }}</option>{% endfor %}</select><input name="tutar" inputmode="decimal" placeholder="Tutar ₺" required aria-label="Tutar"><input name="notlar" placeholder="Not" aria-label="Not"><button>Ekle</button></form>
+{% if kayitlar %}<table><thead><tr><th>Tarih</th><th>Tür</th><th>Not</th><th class="sag">Tutar</th><th></th></tr></thead><tbody>
+{% for k in kayitlar %}<tr><td>{{ k.tarih|tarih }}</td><td>{{ k.tur }}</td><td>{{ k.notlar }}</td><td class="sag">{{ k.kurus|para }} ₺</td><td><form method="post" action="{{ url_for('gider_iptal', gid=k.id) }}" data-onay="Bu gider iptal edilsin mi?"><button class="kucuk">İptal</button></form></td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Henüz gider yok.</p>{% endif %}
+{% endblock %}

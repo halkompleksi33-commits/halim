@@ -1,0 +1,3 @@
+{% if r.urunler %}<table><thead><tr><th>Ürün</th><th class="sag">Kasa</th><th class="sag">Miktar</th><th class="sag">Satış</th><th class="sag">Komisyon</th></tr></thead><tbody>
+{% for u in r.urunler %}<tr><td>{{ u.ad }}</td><td class="sag">{{ u.kasa }}</td><td class="sag">{{ u.miktar|miktar }} {{ u.birim }}</td><td class="sag">{{ u.tutar|para }} ₺</td><td class="sag">{{ u.komisyon|para }} ₺</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Satış yok.</p>{% endif %}

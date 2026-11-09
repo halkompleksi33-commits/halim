@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Stok</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+{% if stok %}<table><thead><tr><th>Ürün</th><th>Üretici</th><th>Giriş</th><th>Künye no</th><th class="sag">Kasa</th><th class="sag">Kalan</th><th class="yazdirma-yok">Fire düş</th></tr></thead><tbody>
+{% for s in stok %}<tr><td><a href="{{ url_for('giris_detay', gid=s.giris_id) }}">{{ s.urun_ad }}</a></td><td>{{ s.uretici_ad }}</td><td>{{ s.tarih|tarih }}</td><td>{{ s.kunye_no }}</td><td class="sag">{{ s.kalan_kasa }}</td><td class="sag">{{ s.kalan|miktar }} {{ s.birim }}</td>
+<td class="yazdirma-yok"><form method="post" action="{{ url_for('fire_ekle', kid=s.id) }}" class="satir"><input name="fire" inputmode="decimal" class="kisa" required aria-label="Fire miktarı"><button class="ikincil">Düş</button></form></td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Elde mal yok.</p>{% endif %}
+{% endblock %}

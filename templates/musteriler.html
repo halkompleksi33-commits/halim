@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Müşteriler, veresiye</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div><a class="dugme" href="{{ url_for('musteri_yeni') }}">+ Müşteri</a></div>
+{% if kayitlar %}<table><thead><tr><th>Müşteri</th><th>Telefon</th><th class="sag">Borç</th><th>Vade</th><th class="sag">Gecikme</th></tr></thead><tbody>
+{% for m in kayitlar|sort(attribute='gecikme', reverse=true) %}<tr><td><a href="{{ url_for('musteri_detay', mid=m.id) }}">{{ m.ad }}</a></td><td>{{ m.telefon }}</td><td class="sag">{{ m.bakiye|para }} ₺</td><td>{{ m.vade_bilgi.vade|tarih if m.vade_bilgi else '' }}</td><td class="sag {{ 'kirmizi' if m.gecikme }}">{{ (m.gecikme ~ ' gün') if m.gecikme else '' }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Henüz müşteri yok. Elle ekleyebilir ya da <a href="{{ url_for('aktar') }}">Excel'den aktarabilirsin</a>.</p>{% endif %}
+{% endblock %}

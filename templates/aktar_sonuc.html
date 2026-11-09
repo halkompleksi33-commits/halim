@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Aktarım bitti</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<div class="kartlar"><div class="kart vurgu">{{ ikon('tik','yesil') }}<span>Eklenen</span><b>{{ s.eklenen }}</b><small>Yeni eklenen kayıt sayısı.</small></div><div class="kart">{{ ikon('atla','gri') }}<span>Zaten vardı, atlandı</span><b>{{ s.atlanan }}</b><small>Aynı isimde kayıt olduğu için eklenmedi.</small></div><div class="kart">{{ ikon('uyari','turuncu') }}<span>Hatalı satır</span><b>{{ s.hatali|length }}</b><small>Okunamayan satır sayısı.</small></div></div>
+{% if s.hatali %}<h2>Eklenemeyen satırlar</h2><ul>{% for x in s.hatali %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+<p><a class="dugme" href="{{ url_for({'musteri':'musteriler','uretici':'ureticiler','urun':'urunler'}[tur]) }}">Listeyi gör</a></p>
+{% endblock %}

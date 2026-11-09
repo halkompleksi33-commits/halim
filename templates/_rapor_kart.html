@@ -1,0 +1,12 @@
+<div class="kartlar">
+  <div class="kart">{{ ikon('sepet','kirmizi') }}<span>Toplam satış</span><b>{{ r.satis|para }} ₺</b><small>Sattığın bütün malların tutarı.</small></div>
+  <div class="kart">{{ ikon('para','yesil') }}<span>Peşin</span><b>{{ r.pesin|para }} ₺</b><small>Parasını hemen aldığın satışlar.</small></div>
+  <div class="kart">{{ ikon('defter','mavi') }}<span>Veresiye</span><b>{{ r.veresiye|para }} ₺</b><small>Parası sonra alınacak satışlar.</small></div>
+  <div class="kart vurgu">{{ ikon('yuzde','turuncu') }}<span>Komisyon kazancı</span><b>{{ r.komisyon|para }} ₺</b><small>Bu satışlardan senin payın.</small></div>
+  <div class="kart">{{ ikon('belediye','mor') }}<span>Rüsum</span><b>{{ r.rusum|para }} ₺</b><small>Satıştan ayrılan hal payı.</small></div>
+  <div class="kart">{{ ikon('belge','mavi') }}<span>Stopaj</span><b>{{ r.stopaj|para }} ₺</b><small>Üretici adına kesilen vergi.</small></div>
+  <div class="kart">{{ ikon('tahsilat','yesil') }}<span>Tahsilat</span><b>{{ r.tahsilat|para }} ₺</b><small>Müşterilerden aldığın para.</small></div>
+  <div class="kart">{{ ikon('odeme','kirmizi') }}<span>Üreticiye ödeme</span><b>{{ r.odeme|para }} ₺</b><small>Üreticilere verdiğin para.</small></div>
+  <div class="kart">{{ ikon('cuzdan','turuncu') }}<span>Gider</span><b>{{ r.gider|para }} ₺</b><small>Kira gibi kendi masrafların.</small></div>
+  <div class="kart">{{ ikon('kasa','mavi') }}<span>Kasa farkı</span><b>{{ r.kasa|para }} ₺</b><small>Kasaya giren eksi çıkan para.</small></div>
+</div>

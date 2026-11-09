@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk) }}<h1>Hoş geldin <small>{{ bugun|tarih }}</small></h1><p class="aciklama">{{ sayfa.aciklama }}</p></div>
+
+<div class="kartlar">
+  <div class="kart">{{ ikon('sepet','kirmizi') }}<span>Bugünkü satış</span><b>{{ r.satis|para }} ₺</b><small>Bugün sattığın malların toplamı.</small></div>
+  <div class="kart vurgu">{{ ikon('yuzde','turuncu') }}<span>Komisyon kazancı</span><b>{{ r.komisyon|para }} ₺</b><small>Bugünkü satışlardan senin payın.</small></div>
+  <div class="kart">{{ ikon('tahsilat','yesil') }}<span>Tahsilat</span><b>{{ r.tahsilat|para }} ₺</b><small>Bugün müşterilerden aldığın para.</small></div>
+  <div class="kart">{{ ikon('kasa','mavi') }}<span>Kasa farkı</span><b>{{ r.kasa|para }} ₺</b><small>Bugün kasaya giren eksi çıkan para.</small></div>
+  <div class="kart">{{ ikon('defter','mavi') }}<span>Toplam alacağın</span><b>{{ alacak|para }} ₺</b><small>Müşterilerin sana olan toplam borcu.</small></div>
+  <div class="kart">{{ ikon('uretici','yesil') }}<span>Üreticilere borcun</span><b>{{ borc|para }} ₺</b><small>Üreticilere ödemen gereken toplam para.</small></div>
+</div>
+
+{% for grup, kutular in ana_kutular %}
+<h2>{{ grup }}</h2>
+<div class="kutucuklar">
+  {% for k in kutular %}
+  <a class="kutucuk" href="{{ url_for(k.adres) }}">{{ ikon(k.ikon, k.renk) }}<strong>{{ k.ad }}</strong><small>{{ k.aciklama }}</small></a>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<div class="iki">
+<section>
+  <h2>Vadesi geçenler</h2>
+  {% if geciken %}
+  <table><thead><tr><th>Müşteri</th><th>Telefon</th><th class="sag">Borç</th><th class="sag">Gecikme</th></tr></thead><tbody>
+  {% for m in geciken %}<tr><td><a href="{{ url_for('musteri_detay', mid=m.id) }}">{{ m.ad }}</a></td><td>{{ m.telefon }}</td><td class="sag">{{ m.bakiye|para }} ₺</td><td class="sag kirmizi">{{ m.gecikme }} gün</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<p class="soluk">Vadesi geçen borç yok.</p>{% endif %}
+</section>
+<section>
+  <h2>Elde kalan mal</h2>
+  {% if stok %}
+  <table><thead><tr><th>Ürün</th><th>Üretici</th><th class="sag">Kalan</th></tr></thead><tbody>
+  {% for s in stok[:15] %}<tr><td>{{ s.urun_ad }}</td><td>{{ s.uretici_ad }}</td><td class="sag">{{ s.kalan|miktar }} {{ s.birim }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% if stok|length > 15 %}<p><a href="{{ url_for('stok_sayfa') }}">Tümünü gör</a></p>{% endif %}
+  {% else %}<p class="soluk">Elde mal yok.</p>{% endif %}
+</section>
+</div>
+{% endblock %}

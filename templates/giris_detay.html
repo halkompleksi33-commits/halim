@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Üretici hesabı <small>Mal girişi no {{ g.id }}</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<div class="satir yazdirma-yok"><button data-yazdir>Yazdır</button>
+{% if not g.iptal %}<form method="post" action="{{ url_for('giris_iptal', gid=g.id) }}" data-onay="Bu mal girişi iptal edilsin mi?"><button class="tehlike">İptal et</button></form>{% endif %}</div></div>
+{% if g.iptal %}<div class="bildirim hata">Bu kayıt iptal edildi.</div>{% endif %}
+<p class="belge-ust"><b>{{ ayar.firma_ad }}</b><br>Üretici: <a href="{{ url_for('uretici_detay', uid=uretici.id) }}">{{ uretici.ad }}</a>{% if uretici.kimlik_no %} ({{ uretici.kimlik_no }}){% endif %}<br>Tarih: {{ g.tarih|tarih }}{% if g.plaka %} | Plaka: {{ g.plaka }}{% endif %}</p>
+<h2>Gelen mal</h2>
+<table><thead><tr><th>Ürün</th><th>Künye no</th><th class="sag">Kasa</th><th class="sag">Gelen</th><th class="sag">Satılan</th><th class="sag">Fire</th><th class="sag">Kalan</th></tr></thead><tbody>
+{% for k in kalemler %}<tr><td>{{ k.urun_ad }}</td><td>{{ k.kunye_no }}</td><td class="sag">{{ k.kasa }}</td><td class="sag">{{ k.miktar|miktar }} {{ k.birim }}</td><td class="sag">{{ k.satilan|miktar }}</td><td class="sag">{{ k.fire|miktar }}</td><td class="sag">{{ k.kalan|miktar }}</td></tr>{% endfor %}
+</tbody></table>
+<h2>Satışlar</h2>
+{% if satislar %}<table><thead><tr><th>Tarih</th><th>Ürün</th><th class="sag">Kasa</th><th class="sag">Miktar</th><th class="sag">Fiyat</th><th class="sag">Tutar</th></tr></thead><tbody>
+{% for s in satislar %}<tr><td>{{ s.tarih|tarih }}</td><td>{{ s.urun }}</td><td class="sag">{{ s.kasa }}</td><td class="sag">{{ s.miktar|miktar }} {{ s.birim }}</td><td class="sag">{{ s.fiyat_kurus|para }} ₺</td><td class="sag">{{ s.tutar_kurus|para }} ₺</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Henüz satış yok.</p>{% endif %}
+<h2>Hesap</h2>
+<table class="hesap"><tbody>
+<tr><td>Satış toplamı</td><td class="sag">{{ g.brut|para }} ₺</td></tr>
+<tr><td>Komisyon (%{{ g.komisyon_bp|oran }})</td><td class="sag">- {{ g.komisyon|para }} ₺</td></tr>
+<tr><td>Rüsum (%{{ g.rusum_bp|oran }})</td><td class="sag">- {{ g.rusum|para }} ₺</td></tr>
+<tr><td>Stopaj (%{{ g.stopaj_bp|oran }})</td><td class="sag">- {{ g.stopaj|para }} ₺</td></tr>
+{% for m in masraflar %}<tr><td>{{ m.tur }}</td><td class="sag">- {{ m.kurus|para }} ₺</td></tr>{% endfor %}
+<tr class="toplam"><td>Üreticiye kalan</td><td class="sag">{{ g.net|para }} ₺</td></tr>
+</tbody></table>
+{% endblock %}

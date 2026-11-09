@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Ayarlar</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<form method="post" class="form">
+<h2>Firma bilgileri</h2><div class="alanlar">
+<label>Firma adı<input name="firma_ad" value="{{ ayar.firma_ad }}"></label>
+<label>Vergi no<input name="firma_vergi_no" value="{{ ayar.firma_vergi_no }}"></label>
+<label>Vergi dairesi<input name="firma_vergi_dairesi" value="{{ ayar.firma_vergi_dairesi }}"></label>
+<label>Telefon<input name="firma_telefon" value="{{ ayar.firma_telefon }}"></label></div>
+<label>Adres<input name="firma_adres" value="{{ ayar.firma_adres }}"></label>
+<h2>Hazır gelen oranlar</h2>
+<p class="soluk">Bunlar başlangıç değeridir. Kendi muhasebecine sorup düzelt. Değişiklik sadece yeni kayıtları etkiler.</p>
+<div class="alanlar">
+<label>Yeni üretici komisyonu %<input name="komisyon_bp" inputmode="decimal" value="{{ giris_degeri(ayar.komisyon_bp|int,100) }}" required><small>Yeni üreticide hazır gelen oran.</small></label>
+<label>Rüsum %<input name="rusum_bp" inputmode="decimal" value="{{ giris_degeri(ayar.rusum_bp|int,100) }}" required><small>Satıştan ayrılan hal payı.</small></label>
+<label>Stopaj %<input name="stopaj_bp" inputmode="decimal" value="{{ giris_degeri(ayar.stopaj_bp|int,100) }}" required><small>Üretici adına kesilen vergi. Yoksa 0 yaz.</small></label>
+<label>KDV %<input name="kdv_bp" inputmode="decimal" value="{{ giris_degeri(ayar.kdv_bp|int,100) }}" required><small>Satış fiyatının içinde sayılır.</small></label>
+<label>Müşteri vadesi (gün)<input name="vade_gun" inputmode="numeric" value="{{ ayar.vade_gun }}" required><small>Yeni müşteride hazır gelen süre.</small></label></div>
+<button class="ana-dugme">Kaydet</button></form>
+<p class="soluk">Otomatik yedekler program her açıldığında alınır, son 30 gün saklanır: {{ yedek }}</p>
+{% endblock %}

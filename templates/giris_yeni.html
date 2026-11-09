@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Yeni mal girişi</h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+{% if not ureticiler or not urunler %}
+<div class="bildirim hata">Önce en az bir <a href="{{ url_for('uretici_yeni') }}">üretici</a> ve bir <a href="{{ url_for('urunler') }}">ürün</a> eklemelisin.</div>
+{% else %}
+<form method="post" class="form">
+  <div class="alanlar">
+    <label>Tarih<input type="date" name="tarih" value="{{ bugun }}" required></label>
+    <label>Üretici<select name="uretici_id" id="uretici" required><option value="">Seç</option>
+      {% for u in ureticiler %}<option value="{{ u.id }}" data-komisyon="{{ u.komisyon_bp|oran }}">{{ u.ad }}</option>{% endfor %}</select><small>Malı gönderen kişi. Oranı kendiliğinden gelir.</small></label>
+    <label>Araç plakası<input name="plaka"><small>Künye için gerekir. Yoksa boş bırak.</small></label>
+    <label>Komisyon %<input name="komisyon" id="komisyon" inputmode="decimal" value="{{ ayar.komisyon_bp|int|oran }}" required><small>Satıştan senin alacağın yüzde.</small></label>
+    <label>Rüsum %<input name="rusum" inputmode="decimal" value="{{ ayar.rusum_bp|int|oran }}" required><small>Satıştan ayrılan hal payı.</small></label>
+    <label>Stopaj %<input name="stopaj" inputmode="decimal" value="{{ ayar.stopaj_bp|int|oran }}" required><small>Üretici adına kesilen vergi. Yoksa 0 yaz.</small></label>
+  </div>
+  <h2>Gelen mal</h2>
+  <table class="giris-tablo"><thead><tr><th>Ürün</th><th>Künye no<small>Resmi künye numarası</small></th><th>Kasa<small>Kaç kasa geldi</small></th><th>Miktar<small>Kilo ya da adet</small></th><th></th></tr></thead>
+  <tbody id="kalemler"></tbody></table>
+  <template id="kalemler-sablon"><tr>
+    <td><select name="urun_id" required aria-label="Ürün"><option value="">Seç</option>{% for u in urunler %}<option value="{{ u.id }}">{{ u.ad }} ({{ u.birim }})</option>{% endfor %}</select></td>
+    <td><input name="kunye_no" aria-label="Künye no"></td><td><input name="kasa" inputmode="numeric" class="kisa" aria-label="Kasa"></td>
+    <td><input name="miktar" inputmode="decimal" class="kisa" required aria-label="Miktar"></td><td><button type="button" class="satir-sil" aria-label="Satırı sil">×</button></td>
+  </tr></template>
+  <button type="button" class="ikincil" data-satir-ekle="kalemler">+ Ürün ekle</button>
+  <h2>Üreticiden düşülecek masraflar</h2>
+  <p class="aciklama">Yaptığın masrafı yaz, üreticinin hesabından düşülür. Masraf yoksa boş bırak.</p>
+  <table class="giris-tablo"><tbody>
+  {% for t in masraf_turleri %}<tr><td>{{ t }}<input type="hidden" name="masraf_tur" value="{{ t }}"></td><td><input name="masraf_tutar" inputmode="decimal" class="kisa" placeholder="0" aria-label="{{ t }} tutarı"></td></tr>{% endfor %}
+  </tbody></table>
+  <label>Not<input name="notlar"></label>
+  <button class="ana-dugme">Kaydet</button>
+</form>
+{% endif %}
+{% endblock %}
