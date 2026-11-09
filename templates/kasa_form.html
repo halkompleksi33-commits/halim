@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block icerik %}
+{% set tahsilat = islem == 'tahsilat' %}
+<div class="baslik-grup">{{ ikon('tahsilat' if tahsilat else 'odeme', 'yesil' if tahsilat else 'kirmizi') }}<h1>{{ 'Tahsilat yap' if tahsilat else 'Tediye yap' }}</h1><p class="aciklama">{{ 'Kasaya giren parayı yaz. Müşteri seçersen borcundan düşülür.' if tahsilat else 'Kasadan çıkan parayı yaz. Üretici seçersen hesabından düşülür.' }}</p></div>
+<form method="post" class="form" id="kasa-form">
+  <fieldset class="secenek"><legend>{{ 'Para kimden geldi?' if tahsilat else 'Para kime gitti?' }}</legend>
+    {% if tahsilat %}
+    <label class="radyo"><input type="radio" name="kim_tur" value="musteri" checked>Müşteri</label>
+    {% else %}
+    <label class="radyo"><input type="radio" name="kim_tur" value="uretici" checked>Üretici</label>
+    <label class="radyo"><input type="radio" name="kim_tur" value="gider">Gider</label>
+    {% endif %}
+    <label class="radyo"><input type="radio" name="kim_tur" value="diger">Diğer</label>
+  </fieldset>
+  <div class="alanlar">
+    {% if tahsilat %}
+    <label data-kim="musteri">Müşteri<select name="musteri_id" required><option value="">Seç</option>{% for m in musteriler %}<option value="{{ m.id }}">{{ m.ad }}</option>{% endfor %}</select><small>Tutar bu müşterinin borcundan düşer.</small></label>
+    {% else %}
+    <label data-kim="uretici">Üretici<select name="uretici_id" required><option value="">Seç</option>{% for u in ureticiler %}<option value="{{ u.id }}">{{ u.ad }}</option>{% endfor %}</select><small>Tutar bu üreticiye olan borcundan düşer.</small></label>
+    <label data-kim="gider">Gider türü<select name="gider_tur">{% for t in gider_turleri %}<option>{{ t }}</option>{% endfor %}</select><small>Aylık kazancından düşülür.</small></label>
+    {% endif %}
+    <label data-kim="diger">{{ 'Kimden' if tahsilat else 'Kime' }}<input name="kim_ad" required><small>Listelerde olmayan kişi ya da iş.</small></label>
+    <label>Tarih<input type="date" name="tarih" value="{{ bugun }}" required></label>
+    <label>Tutar ₺<input name="tutar" inputmode="decimal" required></label>
+    <label>Ödeme şekli<select name="sekil">{% for s in sekiller %}<option>{{ s }}</option>{% endfor %}</select><small>Sadece Nakit olanlar kasadaki parayı değiştirir.</small></label>
+  </div>
+  <label>Açıklama<input name="notlar"></label>
+  <button class="ana-dugme">Kaydet ve makbuzu aç</button>
+</form>
+{% endblock %}

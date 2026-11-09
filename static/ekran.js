@@ -236,3 +236,59 @@
     if (e.key === "Escape" && !menu.hidden) { ac(false); dugme.focus(); }
   });
 })();
+
+(function () {
+  var form = document.getElementById("kasa-form");
+  if (!form) return;
+  function guncelle() {
+    var secili = form.querySelector('[name="kim_tur"]:checked').value;
+    form.querySelectorAll("[data-kim]").forEach(function (alan) {
+      var acik = alan.dataset.kim === secili;
+      alan.hidden = !acik;
+      alan.querySelectorAll("input,select").forEach(function (e) { e.disabled = !acik; });
+    });
+  }
+  form.addEventListener("change", function (e) {
+    if (e.target.name === "kim_tur") guncelle();
+  });
+  guncelle();
+})();
+
+(function () {
+  document.addEventListener("click", function (e) {
+    var dugme = e.target.closest(".kunye-al");
+    if (!dugme || dugme.disabled) return;
+    var satir = dugme.closest("tr");
+    var urun = satir.querySelector('[name="urun_id"]');
+    if (!urun.value) {
+      urun.setCustomValidity("Önce ürünü seç.");
+      urun.reportValidity();
+      return;
+    }
+    dugme.disabled = true;
+    dugme.textContent = "Künye alınıyor...";
+    setTimeout(function () {
+      fetch(dugme.dataset.adres, { method: "POST" })
+        .then(function (y) { if (!y.ok || y.redirected) throw new Error(); return y.json(); })
+        .then(function (v) {
+          satir.querySelector('[name="kunye_no"]').value = v.kunye;
+          satir.classList.add("kunye-alindi");
+          dugme.textContent = "Künye alındı";
+        })
+        .catch(function () {
+          dugme.disabled = false;
+          dugme.textContent = "Tekrar dene";
+        });
+    }, 700);
+  });
+  document.addEventListener("change", function (e) {
+    if (e.target.name === "urun_id") e.target.setCustomValidity("");
+    if (e.target.matches(".mal-sec")) {
+      var o = e.target.selectedOptions[0];
+      var satir = e.target.closest("tr");
+      var kunye = o && o.value ? o.dataset.kunye : null;
+      satir.querySelector(".satir-kunye").textContent = kunye === null ? "Mal seç" : (kunye || "Künye yok");
+      satir.classList.toggle("kunye-alindi", !!kunye);
+    }
+  });
+})();

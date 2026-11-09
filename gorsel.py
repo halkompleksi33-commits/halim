@@ -30,6 +30,9 @@ SAYFA = {
     "musteri_yeni": _s("dukkan", "mavi", "Yeni bir alıcı ekle. Eski borcu varsa onu da yazabilirsin."),
     "musteri_duzenle": _s("dukkan", "mavi", "Müşterinin bilgilerini buradan düzelt."),
     "musteri_detay": _s("defter", "mavi", "Bu müşterinin aldığı mallar ve yaptığı ödemeler. Parayı aldığında Tahsilat al kısmına yaz."),
+    "kasa_sayfa": _s("kasa", "mavi", "Kasaya giren ve çıkan bütün paralar burada. Satış, tahsilat ve ödemeler kendiliğinden gelir."),
+    "kasa_islem": _s("kasa", "mavi", ""),
+    "kasa_makbuz": _s("fis", "mavi", "Bu makbuzu yazdırıp imzalatabilirsin."),
     "ureticiler": _s("uretici", "yesil", "Malını sattığın üreticiler ve onlara ne kadar borçlu olduğun."),
     "uretici_yeni": _s("uretici", "yesil", "Yeni bir üretici ekle. Komisyon oranını ona özel yazabilirsin."),
     "uretici_duzenle": _s("uretici", "yesil", "Üreticinin bilgilerini buradan düzelt. Yeni oran eski hesapları değiştirmez."),
@@ -51,6 +54,7 @@ UST_MENU = [
     {"adres": "giris_yeni", "ad": "Mal geldi", "ikon": "kamyon", "renk": "yesil", "aciklama": "Gelen malı yaz"},
     {"adres": "satis_yeni", "ad": "Satış yap", "ikon": "sepet", "renk": "kirmizi", "aciklama": "Satışı kaydet"},
     {"adres": "musteriler", "ad": "Veresiye", "ikon": "defter", "renk": "mavi", "aciklama": "Kim ne kadar borçlu"},
+    {"adres": "kasa_sayfa", "ad": "Kasa", "ikon": "kasa", "renk": "mavi", "aciklama": "Tahsilat ve tediye"},
     {"adres": "stok_sayfa", "ad": "Stok", "ikon": "kasalar", "renk": "turuncu", "aciklama": "Elde ne kaldı"},
 ]
 
@@ -76,6 +80,7 @@ KUTULAR = [
     ]),
     ("Hesapların", [
         _k("musteriler", "Veresiye", "defter", "mavi", "Müşterilerin borcunu ve geciken ödemeleri takip et."),
+        _k("kasa_sayfa", "Kasa", "kasa", "mavi", "Kasadaki parayı gör, tahsilat ve tediye yap."),
         _k("ureticiler", "Üreticiler", "uretici", "yesil", "Üreticilerin hesabını çıkar, ödemelerini yaz."),
         _k("kunye", "Künye ve fatura", "kunye", "mor", "Resmi sisteme gireceğin bilgileri hazır al."),
         _k("giderler", "Giderler", "cuzdan", "turuncu", "Kira, elektrik gibi kendi masraflarını yaz."),

@@ -129,6 +129,46 @@ def giris_degeri(deger, bolen):
     return _ondalik(deger, bolen).replace(".", "")
 
 
+_BIRLER = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz"]
+_ONLAR = ["", "on", "yirmi", "otuz", "kırk", "elli", "altmış", "yetmiş", "seksen", "doksan"]
+_GRUPLAR = ["", "bin", "milyon", "milyar", "trilyon"]
+
+
+def _uc_hane(n):
+    parca = []
+    if n >= 100:
+        if n // 100 > 1:
+            parca.append(_BIRLER[n // 100])
+        parca.append("yüz")
+    if n % 100 >= 10:
+        parca.append(_ONLAR[n % 100 // 10])
+    if n % 10:
+        parca.append(_BIRLER[n % 10])
+    return parca
+
+
+def _tam_yazi(n):
+    if n == 0:
+        return "sıfır"
+    gruplar, sira = [], 0
+    while n:
+        n, kalan = divmod(n, 1000)
+        if kalan:
+            parca = [] if sira == 1 and kalan == 1 else _uc_hane(kalan)
+            if sira:
+                parca.append(_GRUPLAR[sira])
+            gruplar.append(" ".join(parca))
+        sira += 1
+    return " ".join(reversed(gruplar))
+
+
+def para_yazi(k):
+    """Makbuz icin tutari yaziyla verir."""
+    lira, kr = divmod(int(k), 100)
+    metin = f"{_tam_yazi(lira)} Türk Lirası"
+    return f"{metin} {_tam_yazi(kr)} kuruş" if kr else metin
+
+
 def tarih_yaz(t):
     if not t:
         return ""

@@ -141,7 +141,9 @@ def rapor(db, bas, son):
     r["odeme"] = _toplam(db, "SELECT SUM(kurus) FROM uretici_odeme WHERE iptal=0 AND tarih BETWEEN ? AND ?", a)
     r["gider"] = _toplam(db, "SELECT SUM(kurus) FROM gider WHERE iptal=0 AND tarih BETWEEN ? AND ?", a)
     r["kazanc"] = r["komisyon"] - r["gider"]
-    r["kasa"] = r["pesin"] + r["tahsilat"] - r["odeme"] - r["gider"]
+    r["diger_giris"] = _toplam(db, "SELECT SUM(kurus) FROM kasa_hareket WHERE iptal=0 AND yon='giris' AND tarih BETWEEN ? AND ?", a)
+    r["diger_cikis"] = _toplam(db, "SELECT SUM(kurus) FROM kasa_hareket WHERE iptal=0 AND yon='cikis' AND tarih BETWEEN ? AND ?", a)
+    r["kasa"] = r["pesin"] + r["tahsilat"] + r["diger_giris"] - r["odeme"] - r["gider"] - r["diger_cikis"]
     r["urunler"] = db.execute(
         """SELECT u.ad, u.birim, SUM(sk.kasa) kasa, SUM(sk.miktar) miktar, SUM(sk.tutar_kurus) tutar,
                   SUM(sk.komisyon_kurus) komisyon
@@ -152,6 +154,28 @@ def rapor(db, bas, son):
         "SELECT tur, SUM(kurus) kurus FROM gider WHERE iptal=0 AND tarih BETWEEN ? AND ? GROUP BY tur ORDER BY kurus DESC", a
     ).fetchall()
     return r
+
+
+_FARK = "SUM(CASE WHEN yon='giris' THEN kurus ELSE -kurus END)"
+
+
+def kasa_ozet(db, bas, son):
+    a = (bas, son)
+    bakiye = _toplam(db, f"SELECT {_FARK} FROM v_kasa WHERE sekil='Nakit' AND tarih<?", (bas,))
+    hareketler = []
+    for r in db.execute("SELECT * FROM v_kasa WHERE tarih BETWEEN ? AND ? ORDER BY tarih, kaynak, id", a).fetchall():
+        d = dict(r)
+        if d["sekil"] == "Nakit":
+            bakiye += d["kurus"] if d["yon"] == "giris" else -d["kurus"]
+        d["bakiye"] = bakiye
+        hareketler.append(d)
+    return {
+        "nakit": _toplam(db, f"SELECT {_FARK} FROM v_kasa WHERE sekil='Nakit'"),
+        "diger": _toplam(db, f"SELECT {_FARK} FROM v_kasa WHERE sekil<>'Nakit'"),
+        "giris": _toplam(db, "SELECT SUM(kurus) FROM v_kasa WHERE yon='giris' AND tarih BETWEEN ? AND ?", a),
+        "cikis": _toplam(db, "SELECT SUM(kurus) FROM v_kasa WHERE yon='cikis' AND tarih BETWEEN ? AND ?", a),
+        "hareketler": hareketler,
+    }
 
 
 def fiyatlar(db, gun):
@@ -182,7 +206,7 @@ def kunye_satirlari(db, gun):
     return db.execute(
         """SELECT s.id satis_id, s.tarih, s.odeme, m.ad musteri, m.vergi_no, m.vergi_dairesi, m.adres,
                   u.ad urun, u.birim, k.kunye_no, g.plaka, ur.ad uretici, sk.kasa, sk.miktar,
-                  sk.fiyat_kurus, sk.tutar_kurus, sk.kdv_bp
+                  sk.fiyat_kurus, sk.tutar_kurus, sk.kdv_bp, sk.hks_no, s.efatura_no
            FROM satis_kalem sk JOIN satis s ON s.id=sk.satis_id AND s.iptal=0
            JOIN giris_kalem k ON k.id=sk.giris_kalem_id
            JOIN giris g ON g.id=k.giris_id JOIN uretici ur ON ur.id=g.uretici_id

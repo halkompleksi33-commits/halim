@@ -12,11 +12,12 @@
   </div>
   {% if not musteriler %}<p class="soluk">Veresiye satış için önce <a href="{{ url_for('musteri_yeni') }}">müşteri ekle</a>.</p>{% endif %}
   <h2>Satılan mal</h2>
-  <table class="giris-tablo"><thead><tr><th>Mal</th><th>Kasa<small>Kaç kasa gitti</small></th><th>Miktar<small>Kilo ya da adet</small></th><th>Birim fiyat ₺ (KDV dahil)</th><th class="sag">Tutar</th><th></th></tr></thead>
+  <table class="giris-tablo"><thead><tr><th>Mal</th><th>Künye<small>Maldan otomatik gelir</small></th><th>Kasa<small>Kaç kasa gitti</small></th><th>Miktar<small>Kilo ya da adet</small></th><th>Birim fiyat ₺ (KDV dahil)</th><th class="sag">Tutar</th><th></th></tr></thead>
   <tbody id="satirlar"></tbody>
-  <tfoot><tr class="toplam"><td colspan="4">Toplam</td><td class="sag"><span id="genel-toplam">0,00</span> ₺</td><td></td></tr></tfoot></table>
+  <tfoot><tr class="toplam"><td colspan="5">Toplam</td><td class="sag"><span id="genel-toplam">0,00</span> ₺</td><td></td></tr></tfoot></table>
   <template id="satirlar-sablon"><tr>
-    <td><select name="kalem_id" class="mal-sec" required aria-label="Mal"><option value="">Seç</option>{% for s in stoklar %}<option value="{{ s.id }}" data-kalan="{{ s.kalan }}" data-birim="{{ s.birim }}">{{ s.etiket }}</option>{% endfor %}</select></td>
+    <td><select name="kalem_id" class="mal-sec" required aria-label="Mal"><option value="">Seç</option>{% for s in stoklar %}<option value="{{ s.id }}" data-kalan="{{ s.kalan }}" data-birim="{{ s.birim }}" data-kunye="{{ s.kunye }}">{{ s.etiket }}</option>{% endfor %}</select></td>
+    <td class="satir-kunye">Mal seç</td>
     <td><input name="kasa" inputmode="numeric" class="kisa" aria-label="Kasa"></td>
     <td><input name="miktar" inputmode="decimal" class="kisa hesap-alan" required aria-label="Miktar"></td>
     <td><input name="fiyat" inputmode="decimal" class="kisa hesap-alan" required aria-label="Birim fiyat"></td>

@@ -1,16 +1,24 @@
 {% extends "base.html" %}
 {% block icerik %}
 <div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Satış fişi <small>No {{ s.id }}</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
-<div class="satir yazdirma-yok"><button data-yazdir>Yazdır</button>
+<div class="satir yazdirma-yok">
+{% if not s.iptal %}
+<form method="post" action="{{ url_for('hks_bildir', sid=s.id) }}"><button class="ikincil">{{ ikon('kunye', 'mor') }}HKS bildir</button></form>
+<form method="post" action="{{ url_for('fatura_kes', sid=s.id) }}"><button class="ikincil">{{ ikon('fis', 'kirmizi') }}Fatura kes</button></form>
+{% endif %}
+<button data-yazdir>Yazdır</button>
 {% if not s.iptal %}<form method="post" action="{{ url_for('satis_iptal', sid=s.id) }}" data-onay="Bu satış iptal edilsin mi? Mal stoğa geri döner."><button class="tehlike">İptal et</button></form>{% endif %}</div></div>
 {% if s.iptal %}<div class="bildirim hata">Bu satış iptal edildi.</div>{% endif %}
 <div class="iki belge-ust">
 <p><b>Satıcı</b><br>{{ ayar.firma_ad or 'Ayarlardan firma bilgini gir' }}<br>{% if ayar.firma_vergi_no %}VKN: {{ ayar.firma_vergi_no }} {{ ayar.firma_vergi_dairesi }}<br>{% endif %}{{ ayar.firma_adres }}</p>
 <p><b>Alıcı</b><br>{% if musteri %}<a href="{{ url_for('musteri_detay', mid=musteri.id) }}">{{ musteri.ad }}</a><br>{% if musteri.vergi_no %}VKN: {{ musteri.vergi_no }} {{ musteri.vergi_dairesi }}<br>{% endif %}{{ musteri.adres }}{% else %}Peşin müşteri{% endif %}<br>Tarih: {{ s.tarih|tarih }} | {{ 'Peşin' if s.odeme=='pesin' else 'Veresiye' }}</p>
 </div>
-<table><thead><tr><th>Ürün</th><th>Künye no</th><th>Plaka</th><th class="sag">Kasa</th><th class="sag">Miktar</th><th class="sag">Fiyat</th><th class="sag">Matrah</th><th class="sag">KDV</th><th class="sag">Toplam</th></tr></thead><tbody>
-{% for d in satirlar %}<tr><td>{{ d.urun }}</td><td>{% if d.kunye_no %}{{ d.kunye_no }} <button type="button" class="kucuk yazdirma-yok" data-kopyala="{{ d.kunye_no }}">Kopyala</button>{% else %}<span class="kirmizi">Eksik</span>{% endif %}</td><td>{{ d.plaka }}</td><td class="sag">{{ d.kasa }}</td><td class="sag">{{ d.miktar|miktar }} {{ d.birim }}</td><td class="sag">{{ d.fiyat_kurus|para }}</td><td class="sag">{{ d.matrah|para }}</td><td class="sag">{{ d.kdv|para }} (%{{ d.kdv_bp|oran }})</td><td class="sag">{{ d.tutar_kurus|para }}</td></tr>{% endfor %}
+<table><thead><tr><th>Ürün</th><th>Künye no</th><th>HKS künyesi</th><th>Plaka</th><th class="sag">Kasa</th><th class="sag">Miktar</th><th class="sag">Fiyat</th><th class="sag">Matrah</th><th class="sag">KDV</th><th class="sag">Toplam</th></tr></thead><tbody>
+{% for d in satirlar %}<tr class="{{ 'kunye-alindi' if d.hks_no }}"><td>{{ d.urun }}</td><td>{% if d.kunye_no %}{{ d.kunye_no }} <button type="button" class="kucuk yazdirma-yok" data-kopyala="{{ d.kunye_no }}">Kopyala</button>{% else %}<span class="kirmizi">Eksik</span>{% endif %}</td><td>{{ d.hks_no or 'Bildirilmedi' }}</td><td>{{ d.plaka }}</td><td class="sag">{{ d.kasa }}</td><td class="sag">{{ d.miktar|miktar }} {{ d.birim }}</td><td class="sag">{{ d.fiyat_kurus|para }}</td><td class="sag">{{ d.matrah|para }}</td><td class="sag">{{ d.kdv|para }} (%{{ d.kdv_bp|oran }})</td><td class="sag">{{ d.tutar_kurus|para }}</td></tr>{% endfor %}
 </tbody>
-<tfoot><tr class="toplam"><td colspan="6">Toplam</td><td class="sag">{{ matrah|para }}</td><td class="sag">{{ kdv|para }}</td><td class="sag">{{ s.toplam|para }} ₺</td></tr></tfoot></table>
+<tfoot><tr class="toplam"><td colspan="7">Toplam</td><td class="sag">{{ matrah|para }}</td><td class="sag">{{ kdv|para }}</td><td class="sag">{{ s.toplam|para }} ₺</td></tr></tfoot></table>
+<p class="aciklama demo-not yazdirma-yok"><span class="demo-etiket">Demo</span> HKS bildir ve Fatura kes tuşları deneme bilgisi üretir. Resmi sisteme hiçbir şey gönderilmez.</p>
+{% if s.efatura_no %}<section class="efatura kunye-alindi"><h2>E-fatura bilgileri <span class="demo-etiket">Demo</span></h2>
+<dl><dt>Fatura no</dt><dd>{{ s.efatura_no }}</dd><dt>ETTN</dt><dd>{{ s.efatura_ettn }}</dd><dt>Tarih</dt><dd>{{ s.efatura_tarih[:10]|tarih }} {{ s.efatura_tarih[11:16] }}</dd><dt>Tutar</dt><dd>{{ s.toplam|para }} ₺</dd></dl></section>{% endif %}
 {% if s.notlar %}<p>Not: {{ s.notlar }}</p>{% endif %}
 {% endblock %}

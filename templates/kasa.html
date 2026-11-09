@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="ust"><div class="baslik-grup">{{ ikon(sayfa.ikon, sayfa.renk, "yazdirma-yok") }}<h1>Kasa <small>{{ bas|tarih }}{% if son != bas %} - {{ son|tarih }}{% endif %}</small></h1><p class="aciklama yazdirma-yok">{{ sayfa.aciklama }}</p></div>
+<form class="satir yazdirma-yok"><input type="date" name="bas" value="{{ bas }}" aria-label="Başlangıç tarihi"><input type="date" name="son" value="{{ son }}" aria-label="Bitiş tarihi"><button>Göster</button><button type="button" data-yazdir>Yazdır</button></form></div>
+
+<div class="kartlar">
+  <div class="kart vurgu">{{ ikon('kasa','mavi') }}<span>Kasadaki nakit</span><b class="{{ 'kirmizi' if k.nakit < 0 }}">{{ k.nakit|para }} ₺</b><small>Şu anda kasada olması gereken para.</small></div>
+  <div class="kart">{{ ikon('tahsilat','yesil') }}<span>Giren para</span><b>{{ k.giris|para }} ₺</b><small>Seçili tarihlerde gelen bütün para.</small></div>
+  <div class="kart">{{ ikon('odeme','kirmizi') }}<span>Çıkan para</span><b>{{ k.cikis|para }} ₺</b><small>Seçili tarihlerde ödenen bütün para.</small></div>
+  <div class="kart">{{ ikon('belge','mavi') }}<span>Havale, çek, kart</span><b>{{ k.diger|para }} ₺</b><small>Nakit dışındaki giriş ve çıkışların farkı.</small></div>
+</div>
+
+<div class="kutucuklar yazdirma-yok">
+  <a class="kutucuk" href="{{ url_for('kasa_islem', islem='tahsilat') }}">{{ ikon('tahsilat','yesil') }}<strong>Tahsilat yap</strong><small>Müşteriden ya da başka birinden para aldığında yaz.</small></a>
+  <a class="kutucuk" href="{{ url_for('kasa_islem', islem='tediye') }}">{{ ikon('odeme','kirmizi') }}<strong>Tediye yap</strong><small>Üreticiye, gidere ya da başka birine para verdiğinde yaz.</small></a>
+</div>
+<p class="aciklama yazdirma-yok kasa-ipucu">Kasada önceden para varsa Tahsilat yap kısmından "Diğer" seçip açıklamaya Devir yaz.</p>
+
+<h2>Kasa hareketleri</h2>
+{% if k.hareketler %}<table class="sik"><thead><tr><th>Tarih</th><th>İşlem</th><th>Kim</th><th>Açıklama</th><th>Şekil</th><th class="sag">Giren</th><th class="sag">Çıkan</th><th class="sag">Nakit bakiye</th><th class="yazdirma-yok"></th></tr></thead><tbody>
+{% for h in k.hareketler %}<tr><td>{{ h.tarih|tarih }}</td><td>{{ 'Tahsilat' if h.yon == 'giris' else 'Tediye' }}</td><td>{{ h.kim }}</td><td>{{ h.aciklama }}</td><td>{{ h.sekil }}</td><td class="sag">{{ h.kurus|para if h.yon == 'giris' }}</td><td class="sag">{{ h.kurus|para if h.yon == 'cikis' }}</td><td class="sag">{{ h.bakiye|para }}</td>
+<td class="yazdirma-yok"><div class="satir">
+{% if h.kaynak == 'satis' %}<a class="dugme ikincil kucuk-baglanti" href="{{ url_for('satis_detay', sid=h.id) }}">Fiş</a>
+{% else %}<a class="dugme ikincil kucuk-baglanti" href="{{ url_for('kasa_makbuz', kaynak=h.kaynak, kid=h.id) }}">Makbuz</a>
+{% if h.kaynak == 'tahsilat' %}{% set iptal = url_for('tahsilat_iptal', tid=h.id) %}{% elif h.kaynak == 'odeme' %}{% set iptal = url_for('odeme_iptal', oid=h.id) %}{% elif h.kaynak == 'gider' %}{% set iptal = url_for('gider_iptal', gid=h.id) %}{% else %}{% set iptal = url_for('kasa_iptal', kid=h.id) %}{% endif %}
+<form method="post" action="{{ iptal }}" data-onay="Bu kasa hareketi iptal edilsin mi?"><button class="kucuk">İptal</button></form>{% endif %}
+</div></td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="soluk">Bu tarihlerde kasa hareketi yok.</p>{% endif %}
+{% endblock %}

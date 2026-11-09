@@ -126,3 +126,28 @@ button.satir-sil{background:#fff;color:var(--kirmizi);border:1px solid var(--ciz
 @media (max-width:700px){.hizli-menu{grid-template-columns:1fr;width:260px}.hizli-dugme{width:104px}}
 @media (min-width:701px){.ust-menu a,.hizli-dugme{width:118px}.ust-menu{gap:6px}}
 .ust-menu .hizli-menu a{width:auto;text-align:left;align-items:flex-start;color:var(--yazi)}
+
+.kasa-ipucu{margin-top:12px}
+.kucuk-baglanti{padding:2px 9px;font-size:14px;font-weight:500}
+.secenek{border:1px solid var(--cizgi);border-radius:12px;background:var(--yuzey);padding:10px 14px;display:flex;gap:18px;flex-wrap:wrap;margin:0}
+.secenek legend{font-weight:600;font-size:15px;padding:0 6px}
+.form .radyo{flex-direction:row;align-items:center;gap:7px;font-size:17px;font-weight:500;cursor:pointer}
+.radyo input{width:20px;height:20px;accent-color:var(--ana)}
+.form label[hidden]{display:none}
+.makbuz{background:var(--yuzey);border:1px solid var(--cizgi);border-radius:12px;padding:24px;max-width:680px;margin-top:8px}
+.makbuz header{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid var(--yazi);padding-bottom:12px}
+.makbuz-no{text-align:right}.makbuz-no strong{font-size:20px}
+.makbuz dl{display:grid;grid-template-columns:160px 1fr;gap:10px;margin:18px 0}
+.makbuz dt{color:var(--soluk)}.makbuz dd{margin:0;font-weight:600}.makbuz-tutar{font-size:24px}
+.makbuz footer{display:flex;justify-content:space-around;margin-top:42px;text-align:center;color:var(--soluk)}
+@media print{.makbuz{border:1px solid #999;max-width:none}}
+
+.kunye-alindi td,section.kunye-alindi{background:#d9f3e0}
+.kunye-alindi input{background:#f0fbf3;border-color:#7cc596}
+.kunye-al{white-space:nowrap}.kunye-al:disabled{cursor:default;background:#d9f3e0;color:var(--ana-koyu);border-color:#7cc596}
+.satir-kunye{font-size:15px;white-space:nowrap;color:var(--soluk)}
+.demo-etiket{display:inline-block;background:#fdeed2;color:#8a5a00;border-radius:6px;padding:1px 7px;font-size:13px;font-weight:700;vertical-align:middle}
+.demo-not{margin-top:8px}
+.efatura{border:1px solid #7cc596;border-radius:12px;padding:6px 18px 14px;margin-top:16px;max-width:680px}
+.efatura dl{display:grid;grid-template-columns:110px 1fr;gap:6px;margin:0}.efatura dt{color:var(--soluk)}.efatura dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.satir form button .ikon-kutu{width:24px;height:24px;padding:2px;border-radius:6px;background:none;vertical-align:middle;margin-right:5px}

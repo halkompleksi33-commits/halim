@@ -16,6 +16,7 @@ from openpyxl.styles import Font
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import aktarim
+import demo
 import gorsel
 import hesap as h
 import sorgular as q
@@ -176,7 +177,7 @@ def yedek_excel():
     kitap = Workbook()
     kitap.remove(kitap.active)
     for tablo in ("ayar", "uretici", "musteri", "urun", "giris", "giris_kalem", "masraf", "satis", "satis_kalem",
-                  "tahsilat", "uretici_odeme", "gider", "hal_fiyat", "notlar"):
+                  "tahsilat", "uretici_odeme", "gider", "hal_fiyat", "notlar", "kasa_hareket"):
         sayfa = kitap.create_sheet(tablo)
         satirlar = db().execute(f"SELECT * FROM {tablo}").fetchall()
         if satirlar:
@@ -231,6 +232,141 @@ def kisayol():
     icerik = f"[InternetShortcut]\r\nURL={kok}\r\nIconIndex=0\r\nIconFile={kok}static/halim-logo.ico\r\n"
     return send_file(io.BytesIO(icerik.encode("utf-8")), as_attachment=True, download_name="Halim.url",
                      mimetype="application/internet-shortcut")
+
+
+# ---------- Demo kunye, HKS ve e-fatura ----------
+
+@app.post("/demo/kunye")
+def demo_kunye():
+    return jsonify(kunye=demo.kunye())
+
+
+def _satis_kontrol(sid):
+    s = bir("SELECT * FROM satis WHERE id=?", (sid,))
+    if s["iptal"]:
+        raise Hata("İptal edilmiş satışta bu işlem yapılamaz.")
+    return s
+
+
+@app.post("/satis/<int:sid>/hks-bildir")
+def hks_bildir(sid):
+    _satis_kontrol(sid)
+    kalemler = db().execute(
+        """SELECT sk.id, sk.hks_no, k.kunye_no FROM satis_kalem sk JOIN giris_kalem k ON k.id=sk.giris_kalem_id
+           WHERE sk.satis_id=?""", (sid,)).fetchall()
+    if any(not k["kunye_no"] for k in kalemler):
+        raise Hata("Künyesi eksik mal var. Önce mal girişinde künye alınmalı.")
+    yeni = [k for k in kalemler if not k["hks_no"]]
+    if not yeni:
+        flash("Bu satış zaten bildirilmiş.", "tamam")
+        return redirect(url_for("satis_detay", sid=sid))
+    db().executemany("UPDATE satis_kalem SET hks_no=? WHERE id=?", [(demo.hks_no(), k["id"]) for k in yeni])
+    db().commit()
+    flash("Demo HKS bildirimi yapıldı. Resmi sisteme gönderilmedi.", "tamam")
+    return redirect(url_for("satis_detay", sid=sid))
+
+
+@app.post("/satis/<int:sid>/fatura-kes")
+def fatura_kes(sid):
+    s = _satis_kontrol(sid)
+    if s["efatura_no"]:
+        flash("Bu satışın faturası zaten kesilmiş.", "tamam")
+        return redirect(url_for("satis_detay", sid=sid))
+    db().execute("UPDATE satis SET efatura_no=?, efatura_ettn=?, efatura_tarih=? WHERE id=?",
+                 (demo.efatura_no(sid), demo.ettn(), datetime.now().isoformat(timespec="minutes"), sid))
+    db().commit()
+    flash("Demo e-fatura bilgileri yazıldı. Resmi fatura kesilmedi.", "tamam")
+    return redirect(url_for("satis_detay", sid=sid))
+
+
+# ---------- Kasa ----------
+
+@app.get("/kasa")
+def kasa_sayfa():
+    bugun_ = date.today().isoformat()
+    bas = h.tarih_coz(request.args.get("bas") or bugun_)
+    son = h.tarih_coz(request.args.get("son") or bugun_)
+    if bas > son:
+        raise Hata("Başlangıç tarihi bitişten sonra olamaz.")
+    return render_template("kasa.html", k=q.kasa_ozet(db(), bas, son), bas=bas, son=son)
+
+
+def _liste_kaydi(tablo, kid, ad):
+    kayit = db().execute(f"SELECT id FROM {tablo} WHERE id=? AND aktif=1", (kimlik(kid, ad), )).fetchone()
+    if not kayit:
+        raise Hata(f"{ad} seçilmedi.")
+    return kayit["id"]
+
+
+def _kasa_kaydet(islem):
+    f = request.form
+    tarih = h.tarih_coz(f.get("tarih"))
+    k = h.kurus(f.get("tutar"), "Tutar")
+    if not k:
+        raise Hata("Tutar sıfır olamaz.")
+    sekil = f.get("sekil")
+    if sekil not in TAHSILAT_SEKILLERI:
+        raise Hata("Ödeme şeklini seç.")
+    notlar_, tur = metin("notlar"), f.get("kim_tur")
+    if islem == "tahsilat" and tur == "musteri":
+        c = db().execute("INSERT INTO tahsilat(tarih,musteri_id,kurus,sekil,notlar) VALUES(?,?,?,?,?)",
+                         (tarih, _liste_kaydi("musteri", f.get("musteri_id"), "Müşteri"), k, sekil, notlar_))
+        return "tahsilat", c.lastrowid
+    if islem == "tediye" and tur == "uretici":
+        c = db().execute("INSERT INTO uretici_odeme(tarih,uretici_id,kurus,sekil,notlar) VALUES(?,?,?,?,?)",
+                         (tarih, _liste_kaydi("uretici", f.get("uretici_id"), "Üretici"), k, sekil, notlar_))
+        return "odeme", c.lastrowid
+    if islem == "tediye" and tur == "gider":
+        gider_tur = f.get("gider_tur")
+        if gider_tur not in GIDER_TURLERI:
+            raise Hata("Gider türünü seç.")
+        c = db().execute("INSERT INTO gider(tarih,tur,kurus,notlar,sekil) VALUES(?,?,?,?,?)", (tarih, gider_tur, k, notlar_, sekil))
+        return "gider", c.lastrowid
+    if tur == "diger":
+        kim = metin("kim_ad")
+        if not kim:
+            raise Hata("Kimden geldiğini ya da kime gittiğini yaz.")
+        c = db().execute("INSERT INTO kasa_hareket(tarih,yon,kim,notlar,sekil,kurus) VALUES(?,?,?,?,?,?)",
+                         (tarih, "giris" if islem == "tahsilat" else "cikis", kim, notlar_, sekil, k))
+        return "diger", c.lastrowid
+    raise Hata("Paranın kimden geldiğini ya da kime gittiğini seç.")
+
+
+@app.route("/kasa/<any(tahsilat,tediye):islem>", methods=["GET", "POST"])
+def kasa_islem(islem):
+    if request.method == "POST":
+        kaynak, kid = _kasa_kaydet(islem)
+        db().commit()
+        flash("Tahsilat kaydedildi." if islem == "tahsilat" else "Tediye kaydedildi.", "tamam")
+        return redirect(url_for("kasa_makbuz", kaynak=kaynak, kid=kid))
+    return render_template(
+        "kasa_form.html", islem=islem, sekiller=TAHSILAT_SEKILLERI, gider_turleri=GIDER_TURLERI,
+        musteriler=db().execute("SELECT id, ad FROM musteri WHERE aktif=1 ORDER BY lower(ad)").fetchall(),
+        ureticiler=db().execute("SELECT id, ad FROM uretici WHERE aktif=1 ORDER BY lower(ad)").fetchall())
+
+
+@app.get("/kasa/makbuz/<any(tahsilat,odeme,gider,diger):kaynak>/<int:kid>")
+def kasa_makbuz(kaynak, kid):
+    sorgu = {
+        "tahsilat": "SELECT t.*, m.ad kim, 'giris' yon FROM tahsilat t JOIN musteri m ON m.id=t.musteri_id WHERE t.id=?",
+        "odeme": "SELECT o.*, u.ad kim, 'cikis' yon FROM uretici_odeme o JOIN uretici u ON u.id=o.uretici_id WHERE o.id=?",
+        "gider": "SELECT g.*, g.tur kim, 'cikis' yon FROM gider g WHERE g.id=?",
+        "diger": "SELECT * FROM kasa_hareket WHERE id=?",
+    }[kaynak]
+    r = bir(sorgu, (kid,))
+    onek = {"tahsilat": "TM", "odeme": "TD", "gider": "GD", "diger": "KS"}[kaynak]
+    m = {"baslik": "Tahsilat makbuzu" if r["yon"] == "giris" else "Tediye makbuzu", "no": f"{onek}-{kid}", "yon": r["yon"],
+         "tarih": r["tarih"], "kim": r["kim"], "sekil": r["sekil"], "aciklama": r["notlar"], "kurus": r["kurus"],
+         "yazi": h.para_yazi(r["kurus"]), "iptal": r["iptal"]}
+    return render_template("kasa_makbuz.html", m=m)
+
+
+@app.post("/kasa/hareket/<int:kid>/iptal")
+def kasa_iptal(kid):
+    db().execute("UPDATE kasa_hareket SET iptal=1 WHERE id=?", (kid,))
+    db().commit()
+    flash("Kasa hareketi iptal edildi.", "tamam")
+    return geri("kasa_sayfa")
 
 
 # ---------- Notlar ----------
@@ -405,7 +541,7 @@ def satislar():
 @app.get("/satis/yeni")
 def satis_yeni():
     stoklar = [{
-        "id": s["id"], "kalan": s["kalan"] / 1000, "birim": s["birim"],
+        "id": s["id"], "kalan": s["kalan"] / 1000, "birim": s["birim"], "kunye": s["kunye_no"],
         "etiket": f"{s['urun_ad']} | {s['uretici_ad']} | {h.tarih_yaz(s['tarih'])} | kalan {h.miktar(s['kalan'])} {s['birim']}",
     } for s in q.stok(db())]
     return render_template("satis_yeni.html", stoklar=stoklar, musteriler=db().execute(
@@ -672,7 +808,7 @@ def gider_iptal(gid):
     db().execute("UPDATE gider SET iptal=1 WHERE id=?", (gid,))
     db().commit()
     flash("Gider iptal edildi.", "tamam")
-    return redirect(url_for("giderler"))
+    return geri("giderler")
 
 
 # ---------- Kunye ve fatura bilgisi ----------
@@ -709,7 +845,7 @@ def kunye_excel():
     sayfa = kitap.active
     sayfa.title = "Künye ve fatura"
     basliklar = ["Satış no", "Tarih", "Alıcı", "Vergi no", "Vergi dairesi", "Adres", "Ürün", "Künye no", "Plaka", "Üretici",
-                 "Kasa", "Miktar", "Birim", "Birim fiyat (KDV dahil)", "Matrah", "KDV oranı %", "KDV", "Toplam"]
+                 "Kasa", "Miktar", "Birim", "Birim fiyat (KDV dahil)", "Matrah", "KDV oranı %", "KDV", "Toplam", "HKS künyesi (demo)", "E-fatura no (demo)"]
     sayfa.append(basliklar)
     for hucre in sayfa[1]:
         hucre.font = Font(bold=True)
@@ -717,7 +853,7 @@ def kunye_excel():
         sayfa.append([s["satis_id"], h.tarih_yaz(s["tarih"]), _guvenli(s["musteri"] or "Peşin müşteri"), _guvenli(s["vergi_no"] or ""),
                       _guvenli(s["vergi_dairesi"] or ""), _guvenli(s["adres"] or ""), _guvenli(s["urun"]), _guvenli(s["kunye_no"]),
                       _guvenli(s["plaka"]), _guvenli(s["uretici"]), s["kasa"], s["miktar"] / 1000, s["birim"], s["fiyat_kurus"] / 100,
-                      s["matrah"] / 100, s["kdv_bp"] / 100, s["kdv"] / 100, s["tutar_kurus"] / 100])
+                      s["matrah"] / 100, s["kdv_bp"] / 100, s["kdv"] / 100, s["tutar_kurus"] / 100, s["hks_no"], s["efatura_no"]])
     for sutun, genislik in {"C": 28, "F": 30, "G": 16, "H": 22, "J": 22, "N": 16}.items():
         sayfa.column_dimensions[sutun].width = genislik
     akis = io.BytesIO()

@@ -81,7 +81,7 @@ class _PgImlec:
 
 
 _ID_TABLOLARI = {"uretici", "musteri", "urun", "giris", "giris_kalem", "masraf", "satis", "satis_kalem",
-                 "tahsilat", "uretici_odeme", "gider", "notlar"}
+                 "tahsilat", "uretici_odeme", "gider", "notlar", "kasa_hareket"}
 
 
 class _PgBaglanti:
@@ -199,6 +199,11 @@ CREATE TABLE IF NOT EXISTS hal_fiyat(
   en_dusuk_kurus INTEGER NOT NULL, en_yuksek_kurus INTEGER NOT NULL,
   PRIMARY KEY(tarih, urun_id));
 
+CREATE TABLE IF NOT EXISTS kasa_hareket(
+  id INTEGER PRIMARY KEY, tarih TEXT NOT NULL, yon TEXT NOT NULL CHECK(yon IN ('giris','cikis')),
+  kim TEXT NOT NULL, notlar TEXT DEFAULT '', sekil TEXT NOT NULL, kurus INTEGER NOT NULL,
+  iptal INTEGER NOT NULL DEFAULT 0);
+
 CREATE TABLE IF NOT EXISTS notlar(
   id INTEGER PRIMARY KEY, zaman TEXT NOT NULL, metin TEXT NOT NULL,
   yapildi INTEGER NOT NULL DEFAULT 0, iptal INTEGER NOT NULL DEFAULT 0);
@@ -247,6 +252,7 @@ LEFT JOIN (
   FROM satis_kalem sk JOIN satis s ON s.id=sk.satis_id AND s.iptal=0
   GROUP BY sk.giris_kalem_id) s ON s.giris_kalem_id=k.id;
 
+DROP VIEW IF EXISTS v_kasa;
 DROP VIEW IF EXISTS v_satis;
 CREATE VIEW v_satis AS
 SELECT s.*, m.ad AS musteri_ad, COALESCE(t.toplam,0) AS toplam, COALESCE(t.komisyon,0) AS komisyon
@@ -255,6 +261,21 @@ LEFT JOIN musteri m ON m.id=s.musteri_id
 LEFT JOIN (
   SELECT satis_id, SUM(tutar_kurus) toplam, SUM(komisyon_kurus) komisyon
   FROM satis_kalem GROUP BY satis_id) t ON t.satis_id=s.id;
+
+CREATE VIEW v_kasa AS
+SELECT 'satis' AS kaynak, id, tarih, 'giris' AS yon, COALESCE(musteri_ad,'Peşin müşteri') AS kim,
+  'Peşin satış' AS aciklama, 'Nakit' AS sekil, toplam AS kurus
+FROM v_satis WHERE iptal=0 AND odeme='pesin'
+UNION ALL
+SELECT 'tahsilat', t.id, t.tarih, 'giris', m.ad, t.notlar, t.sekil, t.kurus
+FROM tahsilat t JOIN musteri m ON m.id=t.musteri_id WHERE t.iptal=0
+UNION ALL
+SELECT 'odeme', o.id, o.tarih, 'cikis', u.ad, o.notlar, o.sekil, o.kurus
+FROM uretici_odeme o JOIN uretici u ON u.id=o.uretici_id WHERE o.iptal=0
+UNION ALL
+SELECT 'gider', id, tarih, 'cikis', tur, notlar, sekil, kurus FROM gider WHERE iptal=0
+UNION ALL
+SELECT 'diger', id, tarih, yon, kim, notlar, sekil, kurus FROM kasa_hareket WHERE iptal=0;
 """
 
 VARSAYILAN = {
@@ -264,16 +285,34 @@ VARSAYILAN = {
 }
 
 
+EK_SUTUNLAR = [
+    ("gider", "sekil", "TEXT NOT NULL DEFAULT 'Nakit'"),
+    ("satis_kalem", "hks_no", "TEXT NOT NULL DEFAULT ''"),
+    ("satis", "efatura_no", "TEXT NOT NULL DEFAULT ''"),
+    ("satis", "efatura_ettn", "TEXT NOT NULL DEFAULT ''"),
+    ("satis", "efatura_tarih", "TEXT NOT NULL DEFAULT ''"),
+]
+
+
 def hazirla():
     db = baglan()
     try:
         if canli_mi():
             sema = TABLOLAR.replace("id INTEGER PRIMARY KEY", "id BIGSERIAL PRIMARY KEY").replace(" INTEGER", " BIGINT")
-            for komut in (sema + GORUNUMLER).split(";"):
+            for komut in sema.split(";"):
+                if komut.strip():
+                    db.execute(komut)
+            for tablo, sutun, tanim in EK_SUTUNLAR:
+                db.execute(f"ALTER TABLE {tablo} ADD COLUMN IF NOT EXISTS {sutun} {tanim}")
+            for komut in GORUNUMLER.split(";"):
                 if komut.strip():
                     db.execute(komut)
         else:
-            db.executescript(TABLOLAR + GORUNUMLER)
+            db.executescript(TABLOLAR)
+            for tablo, sutun, tanim in EK_SUTUNLAR:
+                if sutun not in [r["name"] for r in db.execute(f"PRAGMA table_info({tablo})")]:
+                    db.execute(f"ALTER TABLE {tablo} ADD COLUMN {sutun} {tanim}")
+            db.executescript(GORUNUMLER)
         db.executemany("INSERT INTO ayar VALUES(?,?) ON CONFLICT(anahtar) DO NOTHING", VARSAYILAN.items())
         db.commit()
     finally:

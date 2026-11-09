@@ -57,6 +57,13 @@ class HesapTest(unittest.TestCase):
             m, k = h.kdv_ayir(t, 100)
             self.assertEqual(m + k, t)
 
+    def test_para_yazi(self):
+        self.assertEqual(h.para_yazi(100000), "bin Türk Lirası")
+        self.assertEqual(h.para_yazi(123456), "bin iki yüz otuz dört Türk Lirası elli altı kuruş")
+        self.assertEqual(h.para_yazi(200100), "iki bin bir Türk Lirası")
+        self.assertEqual(h.para_yazi(50), "sıfır Türk Lirası elli kuruş")
+        self.assertEqual(h.para_yazi(100000000), "bir milyon Türk Lirası")
+
     def test_yazim(self):
         self.assertEqual(h.para(123456789), "1.234.567,89")
         self.assertEqual(h.para(-5), "-0,05")
@@ -79,7 +86,7 @@ class AkisTest(unittest.TestCase):
 
     def setUp(self):
         d = vt.baglan()
-        for t in ("notlar", "hal_fiyat", "gider", "uretici_odeme", "tahsilat", "satis_kalem", "satis", "masraf", "giris_kalem", "giris", "urun", "musteri", "uretici"):
+        for t in ("kasa_hareket", "notlar", "hal_fiyat", "gider", "uretici_odeme", "tahsilat", "satis_kalem", "satis", "masraf", "giris_kalem", "giris", "urun", "musteri", "uretici"):
             d.execute(f"DELETE FROM {t}")
         d.commit()
         d.close()
@@ -194,7 +201,7 @@ class AkisTest(unittest.TestCase):
         for yol in ("/", "/girisler", "/giris/yeni", f"/giris/{gid}", "/stok", "/satislar", "/satis/yeni", f"/satis/{sid}", "/musteriler",
                     "/musteri/yeni", f"/musteri/{self.mid}", f"/musteri/{self.mid}/duzenle", "/ureticiler", "/uretici/yeni",
                     f"/uretici/{self.uid}", f"/uretici/{self.uid}/duzenle", "/urunler", "/fiyatlar", "/giderler", "/kunye",
-                    "/rapor/gun", "/rapor/ay", "/aktar", "/ayarlar"):
+                    "/rapor/gun", "/rapor/ay", "/aktar", "/ayarlar", "/kasa", "/kasa/tahsilat", "/kasa/tediye"):
             self.assertEqual(self.c.get(yol).status_code, 200, yol)
 
     def test_kunye_excel_ve_formul_korumasi(self):
@@ -271,6 +278,114 @@ class AkisTest(unittest.TestCase):
         kitap = load_workbook(io.BytesIO(self.c.get("/yedek/excel").data))
         self.assertIn("satis_kalem", kitap.sheetnames)
         self.assertEqual(kitap["musteri"]["B2"].value, "Manav Ayşe")
+
+    def kasa(self, islem, **veri):
+        temel = {"tarih": BUGUN, "sekil": "Nakit", "notlar": ""}
+        temel.update(veri)
+        return self.post(f"/kasa/{islem}", **temel)
+
+    def ozet(self):
+        d = vt.baglan()
+        try:
+            return q.kasa_ozet(d, BUGUN, BUGUN)
+        finally:
+            d.close()
+
+    def test_kasa_tahsilat_ve_tediye(self):
+        self.kur()
+        k = self.giris()
+        self.satis(k, miktar="10", fiyat="50", odeme="pesin", musteri="")  # +500 nakit
+        cevap = self.kasa("tahsilat", kim_tur="musteri", musteri_id=self.mid, tutar="1.000")
+        metin = cevap.get_data(as_text=True)
+        self.assertIn("Tahsilat makbuzu", metin)
+        self.assertIn("Yalnız bin Türk Lirası", metin)
+        self.kasa("tediye", kim_tur="uretici", uretici_id=self.uid, tutar="300")
+        self.kasa("tediye", kim_tur="gider", gider_tur="Kira", tutar="100", notlar="Kasım")
+        self.kasa("tahsilat", kim_tur="diger", kim_ad="Devir", tutar="50")
+        self.kasa("tediye", kim_tur="diger", kim_ad="Ahmet", tutar="20")
+        self.kasa("tahsilat", kim_tur="musteri", musteri_id=self.mid, tutar="70", sekil="Havale")
+        o = self.ozet()
+        self.assertEqual(o["nakit"], 50000 + 100000 - 30000 - 10000 + 5000 - 2000)
+        self.assertEqual(o["diger"], 7000)
+        self.assertEqual(o["giris"], 50000 + 100000 + 5000 + 7000)
+        self.assertEqual(o["cikis"], 30000 + 10000 + 2000)
+        self.assertEqual(len(o["hareketler"]), 7)
+        self.assertEqual(o["hareketler"][-1]["bakiye"], o["nakit"])
+        d = vt.baglan()
+        self.assertEqual(q.musteri_bakiye(d, self.mid), 10000 - 100000 - 7000)
+        r = q.rapor(d, BUGUN, BUGUN)
+        self.assertEqual(r["gider"], 10000)
+        self.assertEqual(r["kasa"], 50000 + 107000 + 5000 - 30000 - 10000 - 2000)
+        d.close()
+        sayfa = self.c.get("/kasa").get_data(as_text=True)
+        self.assertIn("Ahmet", sayfa)
+        self.assertIn("Peşin satış", sayfa)
+
+    def test_kasa_iptal(self):
+        self.kur()
+        self.kasa("tahsilat", kim_tur="diger", kim_ad="Devir", tutar="50")
+        kid = self.veri("SELECT id FROM kasa_hareket")[0][0]
+        self.assertEqual(self.c.get(f"/kasa/makbuz/diger/{kid}").status_code, 200)
+        self.post(f"/kasa/hareket/{kid}/iptal")
+        self.assertEqual(self.ozet()["nakit"], 0)
+        self.kasa("tediye", kim_tur="gider", gider_tur="Kira", tutar="10")
+        gid = self.veri("SELECT id FROM gider")[0][0]
+        self.post(f"/gider/{gid}/iptal")
+        self.assertEqual(self.ozet()["nakit"], 0)
+
+    def test_kasa_hatali_giris(self):
+        self.kur()
+        self.assertIn("seçilmedi", self.kasa("tahsilat", kim_tur="musteri", musteri_id="", tutar="5").get_data(as_text=True))
+        self.assertIn("eksi", self.kasa("tediye", kim_tur="diger", kim_ad="X", tutar="-5").get_data(as_text=True))
+        self.assertIn("sıfır", self.kasa("tediye", kim_tur="diger", kim_ad="X", tutar="0").get_data(as_text=True))
+        self.assertIn("seç", self.kasa("tahsilat", kim_tur="uretici", uretici_id=self.uid, tutar="5").get_data(as_text=True))
+        self.assertEqual(self.ozet()["hareketler"], [])
+
+    def test_demo_kunye_hks_fatura(self):
+        self.kur()
+        kunye = self.c.post("/demo/kunye").get_json()["kunye"]
+        self.assertRegex(kunye, r"^DEMO-\d{14}$")
+        self.assertNotEqual(kunye, self.c.post("/demo/kunye").get_json()["kunye"])
+        self.post("/giris/yeni", tarih=BUGUN, uretici_id=self.uid, plaka="", komisyon="10", rusum="2", stopaj="2", notlar="",
+                  urun_id=self.urun, kunye_no=kunye, kasa="5", miktar="100", masraf_tur="Nakliye", masraf_tutar="")
+        k = self.veri("SELECT id FROM giris_kalem")[0][0]
+        self.assertIn(f'data-kunye="{kunye}"', self.c.get("/satis/yeni").get_data(as_text=True))
+        self.satis(k, miktar="10")
+        sid = self.veri("SELECT id FROM satis")[0][0]
+        sayfa = self.c.get(f"/satis/{sid}").get_data(as_text=True)
+        self.assertIn(kunye, sayfa)
+        self.assertIn("HKS bildir", sayfa)
+        self.assertIn("Fatura kes", sayfa)
+        self.assertIn("Resmi sisteme", self.post(f"/satis/{sid}/hks-bildir").get_data(as_text=True))
+        hks = self.veri("SELECT hks_no FROM satis_kalem")[0][0]
+        self.assertTrue(hks.startswith("DEMO-HKS-"))
+        self.post(f"/satis/{sid}/hks-bildir")
+        self.assertEqual(self.veri("SELECT hks_no FROM satis_kalem")[0][0], hks)
+        self.post(f"/satis/{sid}/fatura-kes")
+        s = self.veri("SELECT * FROM satis")[0]
+        self.assertTrue(s["efatura_no"].startswith("DEMO"))
+        self.assertTrue(s["efatura_ettn"].startswith("DEMO-"))
+        no = s["efatura_no"]
+        self.post(f"/satis/{sid}/fatura-kes")
+        self.assertEqual(self.veri("SELECT efatura_no FROM satis")[0][0], no)
+        sayfa = self.c.get(f"/satis/{sid}").get_data(as_text=True)
+        self.assertIn("kunye-alindi", sayfa)
+        self.assertIn(no, sayfa)
+        self.assertIn(hks, self.c.get(f"/kunye?tarih={BUGUN}").get_data(as_text=True))
+        sayfa2 = load_workbook(io.BytesIO(self.c.get(f"/kunye/excel?tarih={BUGUN}").data)).active
+        self.assertEqual((sayfa2["S2"].value, sayfa2["T2"].value), (hks, no))
+
+    def test_demo_kunyesiz_ve_iptal(self):
+        self.kur()
+        self.post("/giris/yeni", tarih=BUGUN, uretici_id=self.uid, plaka="", komisyon="10", rusum="2", stopaj="2", notlar="",
+                  urun_id=self.urun, kunye_no="", kasa="5", miktar="100", masraf_tur="Nakliye", masraf_tutar="")
+        self.satis(self.veri("SELECT id FROM giris_kalem")[0][0], miktar="10")
+        sid = self.veri("SELECT id FROM satis")[0][0]
+        self.assertIn("Künyesi eksik", self.post(f"/satis/{sid}/hks-bildir").get_data(as_text=True))
+        self.assertEqual(self.veri("SELECT hks_no FROM satis_kalem")[0][0], "")
+        self.post(f"/satis/{sid}/iptal")
+        self.assertIn("İptal edilmiş", self.post(f"/satis/{sid}/fatura-kes").get_data(as_text=True))
+        self.assertEqual(self.veri("SELECT efatura_no FROM satis")[0][0], "")
 
     def test_hizli_ekle_menusu(self):
         sayfa = self.c.get("/stok").get_data(as_text=True)
