@@ -1,6 +1,7 @@
 """Halim: komisyoncu icin kayit ve hesap ekrani."""
 import hmac
 import io
+import json
 import os
 import re
 import threading
@@ -43,7 +44,10 @@ if os.environ.get("RENDER") and not CANLI:
     # Render'in kendi diski yeniden baslayinca silinir, kayit kaybetmektense hic acilmasin.
     raise RuntimeError("DATABASE_URL ayarlanmadan program internette acilamaz.")
 CANLI_ADRES = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
-ACIK_SAYFALAR = {"giris_yap", "saglik", "static", "servis_isci"}
+# Halim'i kendi adresinin altinda gosteren siteler (newhal.com/halim)
+EK_ADRESLER = {a.strip() for a in os.environ.get("HAL_EK_ADRESLER", "newhal.com,www.newhal.com").split(",") if a.strip()}
+VEKIL_ONEK = "/halim"
+ACIK_SAYFALAR = {"giris_yap", "saglik", "static", "servis_isci", "manifest"}
 # Kod herkese acik depoda, bu yuzden sifrenin kendisi degil ozeti tutulur.
 # Render'da ADMIN_SIFRE tanimlanirsa o gecerli olur.
 ADMIN_OZET = (generate_password_hash(os.environ["ADMIN_SIFRE"]) if os.environ.get("ADMIN_SIFRE")
@@ -55,13 +59,32 @@ _hesap_onbellek = {}
 HESAP_ONBELLEK_SURESI = 60
 BOS_OZET = generate_password_hash("kullanilmayan-deger", method="pbkdf2:sha256:600000")
 
+class _VekilUyumu:
+    """newhal.com/halim uzerinden gelen istekte adresi ve on eki ona gore ayarlar.
+
+    Sadece izinli adres ve on ek kabul edilir, baskasi bu basliklarla bir sey degistiremez.
+    """
+
+    def __init__(self, uygulama):
+        self.uygulama = uygulama
+
+    def __call__(self, ortam, basla):
+        adres = ortam.get("HTTP_X_HALIM_ADRES", "")
+        if adres.split(":")[0] in EK_ADRESLER and ortam.get("HTTP_X_HALIM_ONEK") == VEKIL_ONEK:
+            ortam["HTTP_HOST"] = adres
+            ortam["SCRIPT_NAME"] = VEKIL_ONEK
+        return self.uygulama(ortam, basla)
+
+
 app = Flask(__name__)
+app.config["SESSION_COOKIE_NAME"] = "halim_oturum"
 app.secret_key = os.environ.get("HAL_GIZLI") or os.urandom(32)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 if CANLI:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
     app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                       PERMANENT_SESSION_LIFETIME=timedelta(days=30))
+app.wsgi_app = _VekilUyumu(app.wsgi_app)
 app.jinja_env.globals["ikon"] = gorsel.ikon
 app.jinja_env.filters.update(para=h.para, miktar=h.miktar, oran=h.oran, tarih=h.tarih_yaz)
 
@@ -135,7 +158,7 @@ def yerel_koruma():
     if request.endpoint == "saglik":
         return None
     if CANLI:
-        if CANLI_ADRES and request.host.split(":")[0] != CANLI_ADRES:
+        if CANLI_ADRES and request.host.split(":")[0] not in ({CANLI_ADRES} | EK_ADRESLER):
             abort(403)
     elif request.host.split(":")[0] not in ("127.0.0.1", "localhost"):
         abort(403)
@@ -224,11 +247,12 @@ def giris_yap():
         return redirect(url_for("ana"))
     hata = ""
     if request.method == "POST":
-        anahtar = request.remote_addr or ""
+        kullanici = (request.form.get("kullanici") or "").strip().lower()
+        # Aktarici uzerinden herkes ayni adresten gorunur, kilit kullanici adina gore de ayrilir.
+        anahtar = f"giris:{kullanici}:{request.remote_addr or ''}"
         if _deneme_kilitli(anahtar):
             hata = "Çok fazla yanlış deneme oldu. 5 dakika sonra tekrar dene."
         else:
-            kullanici = (request.form.get("kullanici") or "").strip().lower()
             r = ydb().execute("SELECT * FROM hesap WHERE kullanici=?", (kullanici,)).fetchone()
             dogru = check_password_hash(r["sifre_ozet"] if r else BOS_OZET, request.form.get("sifre", ""))
             if not r or not dogru:
@@ -486,6 +510,18 @@ def servis_isci():
     cevap = app.send_static_file("sw.js")
     cevap.headers["Cache-Control"] = "no-cache"
     return cevap
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    kok = url_for("ana")
+    bilgi = {
+        "name": "Halim", "short_name": "Halim", "description": "Halde her hesabın yanında", "lang": "tr",
+        "start_url": kok, "scope": kok, "display": "standalone", "background_color": "#fbf7ef", "theme_color": "#17603f",
+        "icons": [{"src": url_for("static", filename=f"simge-{b}.png"), "sizes": f"{b}x{b}", "type": "image/png", "purpose": "any"}
+                  for b in (192, 512)],
+    }
+    return app.response_class(json.dumps(bilgi, ensure_ascii=False), mimetype="application/manifest+json")
 
 
 @app.get("/kisayol.url")

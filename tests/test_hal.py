@@ -658,13 +658,38 @@ class GirisTest(unittest.TestCase):
         cevap = self.c.get("/kisayol.url")
         self.assertIn(b"[InternetShortcut]\r\nURL=http://localhost/\r\n", cevap.data)
         self.assertIn("Halim.url", cevap.headers["Content-Disposition"])
-        bilgi = json.loads(self.c.get("/static/manifest.webmanifest").data)
+        bilgi = json.loads(self.c.get("/manifest.webmanifest").data)
         self.assertEqual((bilgi["name"], bilgi["start_url"], bilgi["display"]), ("Halim", "/", "standalone"))
         for s in bilgi["icons"]:
             veri = self.c.get(s["src"]).data
             self.assertEqual(veri[:8], b"\x89PNG\r\n\x1a\n")
             en = int.from_bytes(veri[16:20], "big")
             self.assertEqual(f"{en}x{en}", s["sizes"])
+
+    def test_newhal_altinda_calisir(self):
+        vekil = {"X-Halim-Adres": "newhal.com", "X-Halim-Onek": "/halim"}
+        cevap = self.c.get("/", headers=vekil)
+        self.assertEqual(cevap.headers["Location"], "/halim/giris-yap")
+        sayfa = self.c.get("/giris-yap", headers=vekil).get_data(as_text=True)
+        self.assertIn('href="/halim/static/stil.css"', sayfa)
+        cevap = self.c.post("/giris-yap", headers={**vekil, "Origin": "https://newhal.com"},
+                            data={"kullanici": "halim", "sifre": "dogru-sifre"})
+        self.assertEqual(cevap.headers["Location"], "/halim/")
+        self.assertIn("halim_oturum=", cevap.headers["Set-Cookie"])
+        sayfa = self.c.get("/", headers=vekil).get_data(as_text=True)
+        self.assertIn('href="/halim/kasa"', sayfa)
+        self.assertIn('data-adres="/halim/notlar"', sayfa)
+        self.assertIn(b"URL=http://newhal.com/halim/", self.c.get("/kisayol.url", headers=vekil).data)
+        bilgi = json.loads(self.c.get("/manifest.webmanifest", headers=vekil).data)
+        self.assertEqual((bilgi["start_url"], bilgi["scope"], bilgi["icons"][0]["src"]), ("/halim/", "/halim/", "/halim/static/simge-192.png"))
+        self.assertEqual(self.c.post("/notlar", headers={**vekil, "Origin": "https://newhal.com"}, data={"metin": "aktarici notu"}).status_code, 200)
+        self.assertEqual(self.c.post("/notlar", headers={**vekil, "Origin": "https://kotu.example"}, data={"metin": "x"}).status_code, 403)
+
+    def test_izinsiz_aktarici_adresi_dikkate_alinmaz(self):
+        sayfa = self.c.get("/giris-yap", headers={"X-Halim-Adres": "kotu.example", "X-Halim-Onek": "/halim"}).get_data(as_text=True)
+        self.assertIn('href="/static/stil.css"', sayfa)
+        sayfa = self.c.get("/giris-yap", headers={"X-Halim-Adres": "newhal.com", "X-Halim-Onek": "/baska"}).get_data(as_text=True)
+        self.assertIn('href="/static/stil.css"', sayfa)
 
     def test_bilgisayarda_indir_dugmesi_yok(self):
         uygulama.CANLI = False

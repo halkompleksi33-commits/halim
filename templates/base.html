@@ -6,7 +6,7 @@
 <title>{% block baslik %}Halim{% endblock %}</title>
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='stil.css') }}">
-{% if canli %}<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+{% if canli %}<link rel="manifest" href="{{ url_for('manifest') }}">
 <meta name="theme-color" content="#17603f">{% endif %}
 </head>
 <body>
