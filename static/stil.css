@@ -156,3 +156,26 @@ button.satir-sil{background:#fff;color:var(--kirmizi);border:1px solid var(--ciz
 #satis-form{max-width:none}
 #satis-form .giris-tablo select.mal-sec{width:auto;min-width:100%}
 #satis-form .giris-tablo .kisa{width:96px}
+.giris-govde{background:var(--zemin)}
+.giris-iki{display:grid;grid-template-columns:1.1fr 1fr;min-height:100vh;max-width:none;padding:0;margin:0}
+.giris-tanitim{background:linear-gradient(150deg,#22b576 0%,#17603f 55%,#0b4f37 100%);color:#fff;padding:56px 64px;display:flex;flex-direction:column;justify-content:center;gap:18px;position:relative;overflow:hidden}
+.giris-tanitim::after{content:"";position:absolute;width:420px;height:420px;border-radius:50%;background:rgba(255,255,255,.06);right:-140px;bottom:-160px}
+.giris-marka{display:flex;align-items:center;gap:14px;font-size:30px;font-weight:700;letter-spacing:-.02em}
+.giris-marka img{border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.giris-tanitim h1{font-size:40px;line-height:1.15;letter-spacing:-.02em;margin:18px 0 0;max-width:480px}
+.giris-tanitim>p{font-size:18px;color:#d7e9dd;max-width:460px;margin:0}
+.giris-tanitim ul{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:14px;max-width:460px;position:relative;z-index:1}
+.giris-tanitim li{display:flex;gap:14px;align-items:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:12px 14px;backdrop-filter:blur(4px)}
+.giris-tanitim li .ikon-kutu{width:46px;height:46px;border-radius:12px}
+.giris-tanitim li b{display:block;font-size:17px}.giris-tanitim li small{color:#d7e9dd;font-size:14.5px}
+.giris-alan{display:flex;align-items:center;justify-content:center;padding:32px 20px}
+.giris-kart{width:100%;max-width:400px;display:flex;flex-direction:column;gap:14px}
+.giris-kart h2{font-size:30px;margin:0;letter-spacing:-.02em}
+.giris-kart .aciklama{margin:-6px 0 6px}
+.giris-kart label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:15px}
+.giris-kart input{width:100%;padding:13px 14px;border-radius:12px;font-size:17px;border:1.5px solid #d9d2c3;transition:border-color .15s,box-shadow .15s}
+.giris-kart input:focus{outline:none;border-color:var(--ana);box-shadow:0 0 0 4px rgba(31,122,77,.15)}
+.giris-kart .ana-dugme{width:100%;padding:14px;border-radius:12px;font-size:18px;margin-top:6px;box-shadow:0 6px 16px rgba(31,122,77,.28)}
+.giris-kart .bildirim{margin:0}
+.giris-alt{color:var(--soluk);font-size:14.5px;text-align:center;margin:6px 0 0}
+@media (max-width:860px){.giris-iki{grid-template-columns:1fr}.giris-tanitim{padding:32px 20px}.giris-tanitim h1{font-size:28px}.giris-tanitim ul{display:none}}

@@ -8,18 +8,33 @@
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='stil.css') }}">
 </head>
-<body>
-<main class="giris-sayfa">
-  <form method="post" class="giris-kutu">
-    <img src="{{ url_for('static', filename='logo.svg') }}" alt="Halim logosu" width="96" height="96">
-    <h1>Halim</h1>
-    <p class="aciklama">Halde her hesabın yanında. Devam etmek için giriş yap.</p>
-    {% for tur, mesaj in get_flashed_messages(with_categories=true) %}<div class="bildirim {{ tur }}" role="alert">{{ mesaj }}</div>{% endfor %}
-    {% if hata %}<div class="bildirim hata" role="alert">{{ hata }}</div>{% endif %}
-    <label>Kullanıcı adı<input name="kullanici" autocomplete="username" autocapitalize="none" required autofocus></label>
-    <label>Şifre<input type="password" name="sifre" autocomplete="current-password" required></label>
-    <button class="ana-dugme">Giriş yap</button>
-  </form>
+<body class="giris-govde">
+<main class="giris-iki">
+  <section class="giris-tanitim" aria-label="Halim">
+    <div class="giris-marka">
+      <img src="{{ url_for('static', filename='logo.svg') }}" alt="Halim logosu" width="64" height="64">
+      <span>Halim</span>
+    </div>
+    <h1>Halde her hesabın yanında.</h1>
+    <p>Mal girişi, satış, veresiye ve kasa tek ekranda. Kayıtların güvende, hesabın her zaman hazır.</p>
+    <ul>
+      <li>{{ ikon('kamyon', 'yesil') }}<div><b>Gelen mal</b><small>Künyesiyle kaydet, stoğa kendiliğinden girsin.</small></div></li>
+      <li>{{ ikon('defter', 'mavi') }}<div><b>Veresiye</b><small>Kim ne kadar borçlu, ne zaman ödeyecek gör.</small></div></li>
+      <li>{{ ikon('kasa', 'turuncu') }}<div><b>Kasa</b><small>Tahsilat ve tediye, makbuzuyla birlikte.</small></div></li>
+    </ul>
+  </section>
+  <section class="giris-alan">
+    <form method="post" class="giris-kart">
+      <h2>Hoş geldin</h2>
+      <p class="aciklama">Devam etmek için hesabına giriş yap.</p>
+      {% for tur, mesaj in get_flashed_messages(with_categories=true) %}<div class="bildirim {{ tur }}" role="alert">{{ mesaj }}</div>{% endfor %}
+      {% if hata %}<div class="bildirim hata" role="alert">{{ hata }}</div>{% endif %}
+      <label>Kullanıcı adı<input name="kullanici" autocomplete="username" autocapitalize="none" required autofocus></label>
+      <label>Şifre<input type="password" name="sifre" autocomplete="current-password" required></label>
+      <button class="ana-dugme">Giriş yap</button>
+      <p class="giris-alt">Hesabın yok mu? Program yöneticisiyle görüş.</p>
+    </form>
+  </section>
 </main>
 </body>
 </html>
