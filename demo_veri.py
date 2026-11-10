@@ -81,7 +81,18 @@ def hazirla():
     """Demo hesabi yoksa acar ve ornek kayitlarla doldurur."""
     y = vt.baglan("yonetim")
     try:
-        if y.execute("SELECT id FROM hesap WHERE kullanici=?", (KULLANICI,)).fetchone():
+        var = y.execute("SELECT * FROM hesap WHERE kullanici=?", (KULLANICI,)).fetchone()
+        if var:
+            sema = var["sema"]
+            # Elle acilmis bos bir demo hesabi varsa ornek kayitlarla doldurulur, dolu hesaba dokunulmaz.
+            if var["durum"] == "acik" and sema != "public":
+                db = vt.baglan(sema)
+                try:
+                    if not db.execute("SELECT COUNT(*) FROM urun").fetchone()[0]:
+                        _doldur(db)
+                        db.commit()
+                finally:
+                    db.close()
             return
         hid = y.execute(
             "INSERT INTO hesap(isletme,kullanici,sifre_ozet,sema,durum,bitis,acilis,notlar) VALUES(?,?,?,?,?,?,?,?)",

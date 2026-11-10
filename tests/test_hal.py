@@ -620,6 +620,17 @@ class AdminTest(unittest.TestCase):
         d.close()
         self.assertIn("demodemo", self.c.get("/giris-yap").get_data(as_text=True))
 
+    def test_elle_acilmis_bos_demo_doldurulur(self):
+        import demo_veri
+        self.admin()
+        self.hesap_ac("demo", sifre="demodemo", isletme="demo")
+        demo_veri.hazirla()
+        k, _ = self.kullanici("demo", "demodemo")
+        self.assertIn("Çınar Market", k.get("/musteriler").get_data(as_text=True))
+        k.post("/urunler", data={"ad": "Benim urunum", "birim": "kg"})
+        demo_veri.hazirla()
+        self.assertEqual(k.get("/urunler").get_data(as_text=True).count("Benim urunum"), 1)
+
     def test_gecersiz_bolum_adi_reddedilir(self):
         for kotu in ("h_1;drop", "../x", "pg_catalog"):
             with self.assertRaises(ValueError):
