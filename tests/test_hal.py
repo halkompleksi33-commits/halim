@@ -436,6 +436,9 @@ def yonetim_temizle():
     d.close()
     uygulama._hesap_onbellek.clear()
     uygulama._denemeler.clear()
+    if not vt.canli_mi():
+        for dosya in vt.veri_klasoru().glob("hal_h_*.db"):
+            dosya.unlink()
 
 
 class AdminTest(unittest.TestCase):
