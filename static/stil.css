@@ -181,3 +181,34 @@ button.satir-sil{background:#fff;color:var(--kirmizi);border:1px solid var(--ciz
 @media (max-width:860px){.giris-iki{grid-template-columns:1fr}.giris-tanitim{padding:32px 20px}.giris-tanitim h1{font-size:28px}.giris-tanitim ul{display:none}}
 .demo-kutu{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fdeed2;border:1px solid #f2d29a;border-radius:12px;padding:12px 14px;margin-top:4px}
 .demo-kutu b{display:block;font-size:15px}.demo-kutu small{color:#6b5320;font-size:14px}.demo-kutu code{background:#fff;border-radius:5px;padding:1px 6px;font-weight:700}
+
+.giris-tanitim>*{position:relative;z-index:1}
+.giris-tanitim::before{content:"";position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(198,245,111,.25),transparent 70%);left:-80px;top:-80px}
+.susler{position:absolute!important;inset:0;z-index:0!important;pointer-events:none}
+.sus{position:absolute;opacity:.9;animation:suzul 7s ease-in-out infinite}
+.sus .ikon-kutu{width:64px;height:64px;border-radius:20px;box-shadow:0 10px 24px rgba(0,0,0,.22);background:rgba(255,255,255,.92)}
+.s1{right:9%;top:9%}.s2{right:24%;top:30%;animation-delay:-2s}.s3{right:7%;top:52%;animation-delay:-4s}.s4{right:28%;bottom:12%;animation-delay:-1s}.s5{right:12%;bottom:4%;animation-delay:-5s}
+.s2 .ikon-kutu,.s4 .ikon-kutu{width:52px;height:52px}
+@keyframes suzul{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-14px) rotate(4deg)}}
+@media (prefers-reduced-motion:reduce){.sus{animation:none}}
+.giris-alan{background:radial-gradient(circle at 80% 10%,#fdeed2 0,transparent 40%),radial-gradient(circle at 10% 90%,#dcf1e4 0,transparent 45%)}
+.giris-kart{background:#fff;border-radius:22px;padding:32px;box-shadow:0 20px 50px rgba(40,50,30,.12)}
+.demo-ayrac{display:flex;align-items:center;gap:12px;color:var(--soluk);font-size:14px;margin:4px 0}
+.demo-ayrac::before,.demo-ayrac::after{content:"";flex:1;height:1px;background:var(--cizgi)}
+.demo-kart{position:relative;border-radius:18px;padding:18px;background:linear-gradient(135deg,#fff7e6 0%,#ffe9c4 50%,#ffd9a8 100%);border:1px solid #f6c87e;box-shadow:0 10px 26px rgba(242,169,59,.25);overflow:hidden}
+.demo-kart::after{content:"";position:absolute;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.35);right:-50px;top:-60px}
+.demo-rozet{position:absolute;top:14px;right:14px;z-index:1;background:#e5483a;color:#fff;font-size:12.5px;font-weight:700;padding:4px 10px;border-radius:999px;box-shadow:0 4px 10px rgba(229,72,58,.35);animation:nabiz 2.4s ease-in-out infinite}
+@keyframes nabiz{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.demo-ust{display:flex;gap:12px;align-items:center;position:relative;z-index:1;padding-right:96px}
+.demo-ust .ikon-kutu{width:48px;height:48px;border-radius:14px;background:#fff}
+.demo-ust b{display:block;font-size:18px;color:#5c3b00}.demo-ust small{color:#7a5410;font-size:14px;line-height:1.3}
+.demo-bilgi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;position:relative;z-index:1}
+.demo-bilgi div{background:rgba(255,255,255,.75);border-radius:12px;padding:8px 12px}
+.demo-bilgi small{display:block;color:#7a5410;font-size:12.5px}.demo-bilgi code{font-size:18px;font-weight:700;color:#3a2500;letter-spacing:.02em}
+.demo-dugme{position:relative;z-index:1;width:100%;padding:13px;border-radius:12px;font-size:17px;background:linear-gradient(135deg,#f2a93b,#e5483a);box-shadow:0 8px 18px rgba(229,72,58,.3);transition:transform .15s,box-shadow .15s}
+.demo-dugme:hover{background:linear-gradient(135deg,#e89a2c,#d33a2c);transform:translateY(-1px);box-shadow:0 10px 22px rgba(229,72,58,.38)}
+@media (prefers-reduced-motion:reduce){.demo-rozet{animation:none}}
+@media (max-width:860px){.susler{display:none}.giris-kart{padding:22px}}
+.demo-rozet{position:relative;top:auto;right:auto;display:inline-block;margin-bottom:10px}
+.demo-ust{padding-right:0}
+.s4{right:6%;bottom:22%}

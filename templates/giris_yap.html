@@ -11,6 +11,13 @@
 <body class="giris-govde">
 <main class="giris-iki">
   <section class="giris-tanitim" aria-label="Halim">
+    <div class="susler" aria-hidden="true">
+      <span class="sus s1">{{ ikon('urun', 'kirmizi') }}</span>
+      <span class="sus s2">{{ ikon('sepet', 'turuncu') }}</span>
+      <span class="sus s3">{{ ikon('kasalar', 'turuncu') }}</span>
+      <span class="sus s4">{{ ikon('uretici', 'yesil') }}</span>
+      <span class="sus s5">{{ ikon('kamyon', 'yesil') }}</span>
+    </div>
     <div class="giris-marka">
       <img src="{{ url_for('static', filename='logo.svg') }}" alt="Halim logosu" width="64" height="64">
       <span>Halim</span>
@@ -32,9 +39,15 @@
       <label>Kullanıcı adı<input name="kullanici" autocomplete="username" autocapitalize="none" required autofocus></label>
       <label>Şifre<input type="password" name="sifre" autocomplete="current-password" required></label>
       <button class="ana-dugme">Giriş yap</button>
-      <div class="demo-kutu">
-        <div><b>Denemek ister misin?</b><small>Kullanıcı adı: <code>demo</code> Şifre: <code>demodemo</code></small></div>
-        <button type="button" class="ikincil" id="demo-doldur">Demo ile gir</button>
+      <div class="demo-ayrac"><span>ya da</span></div>
+      <div class="demo-kart">
+        <span class="demo-rozet">Ücretsiz dene</span>
+        <div class="demo-ust">{{ ikon('sepet', 'kirmizi') }}<div><b>Halim'i hemen dene</b><small>Hazır örnek kayıtlarla dolu demo hesabına tek tıkla gir.</small></div></div>
+        <div class="demo-bilgi">
+          <div><small>Kullanıcı adı</small><code>demo</code></div>
+          <div><small>Şifre</small><code>demodemo</code></div>
+        </div>
+        <button type="button" class="demo-dugme" id="demo-doldur">Demo hesapla gir <span aria-hidden="true">→</span></button>
       </div>
       <p class="giris-alt">Hesabın yok mu? Program yöneticisiyle görüş.</p>
     </form>
