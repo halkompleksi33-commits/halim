@@ -213,3 +213,45 @@ button.satir-sil{background:#fff;color:var(--kirmizi);border:1px solid var(--ciz
 .demo-ust{padding-right:0}
 .s4{right:6%;bottom:22%}
 .gizlilik{max-width:760px;padding:40px 20px 60px}.gizlilik .giris-marka{color:var(--ana-koyu);font-size:24px}.gizlilik h1{margin:18px 0 4px}.gizlilik li{margin:6px 0}
+/* Telefon gorunumu */
+@media (max-width:700px){
+  body{font-size:16px}
+  .ust-bant{flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px 6px;position:sticky;top:0;z-index:40}
+  .marka{flex-direction:row;justify-content:flex-start;gap:10px;min-width:0}
+  .marka img{width:34px;height:34px;border-radius:10px}.marka b{font-size:19px;margin:0}.marka small{display:none}
+  .ust-bant>form{position:absolute;top:8px;right:10px;margin:0}.ust-bant>form button{padding:6px 10px;font-size:14px}
+  .ust-indir{display:none}
+  .ust-menu{flex-wrap:nowrap;overflow-x:auto;gap:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .ust-menu::-webkit-scrollbar{display:none}
+  .ust-menu>a,.hizli-dugme{width:auto;min-width:68px;flex:none;padding:5px 6px;border-radius:10px}
+  .ust-menu>a small,.hizli-dugme small{display:none}
+  .ust-menu>a b,.hizli-dugme b{font-size:13px}
+  .ust-menu .ikon-kutu,.hizli-dugme .ikon-kutu{width:32px;height:32px;padding:5px;border-radius:9px}
+  .hizli{position:static}
+  .hizli-menu{position:fixed;top:112px;left:10px;right:10px;width:auto;max-width:none}
+  main{padding:14px 12px 90px}
+  h1{font-size:23px}.aciklama{font-size:15px}
+  .baslik-grup{margin-bottom:12px}.baslik-grup .ikon-kutu{width:46px;height:46px;border-radius:12px}
+  .kartlar{grid-template-columns:1fr 1fr;gap:10px}
+  .kart{padding:11px}.kart .ikon-kutu{width:40px;height:40px}.kart b{font-size:18px;white-space:normal}.kart small{font-size:12.5px}
+  .kutucuklar{grid-template-columns:1fr 1fr;gap:10px}
+  .kutucuk{padding:12px}.kutucuk .ikon-kutu{width:52px;height:52px}.kutucuk strong{font-size:16px}.kutucuk small{font-size:13px}
+  table{display:block;overflow-x:auto;font-size:14px}
+  th,td{padding:8px}
+  .alanlar{grid-template-columns:1fr}
+  .ust{gap:10px}
+  .iki{gap:12px}
+}
+@media (max-width:700px){
+  html,body{max-width:100%;overflow-x:hidden}
+  main{max-width:100vw;min-width:0}
+  .kartlar,.kutucuklar{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .iki{grid-template-columns:minmax(0,1fr)}
+  .kart,.kutucuk{min-width:0;overflow-wrap:anywhere}
+  .kart b{font-size:17px}
+}
+@media (max-width:700px){
+  .ust-bant{width:100%;max-width:100vw;overflow:hidden}
+  .ust-bant>*{min-width:0;max-width:100%}
+  .ust-menu{width:100%}
+}
