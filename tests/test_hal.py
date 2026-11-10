@@ -667,6 +667,7 @@ class GirisTest(unittest.TestCase):
         self.assertEqual(self.c.post("/urunler", data={"ad": "X"}).status_code, 302)
 
     def test_acik_sayfalar(self):
+        self.assertIn("Gizlilik Politikası", self.c.get("/gizlilik").get_data(as_text=True))
         self.assertEqual(self.c.get("/saglik", headers={"Host": "ic.adres"}).data, b"tamam")
         self.assertEqual(self.c.get("/giris-yap").status_code, 200)
         self.assertEqual(self.c.get("/static/logo.svg").status_code, 200)

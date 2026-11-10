@@ -47,7 +47,7 @@ CANLI_ADRES = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
 # Halim'i kendi adresinin altinda gosteren siteler (newhal.com/halim)
 EK_ADRESLER = {a.strip() for a in os.environ.get("HAL_EK_ADRESLER", "newhal.com,www.newhal.com").split(",") if a.strip()}
 VEKIL_ONEK = "/halim"
-ACIK_SAYFALAR = {"giris_yap", "saglik", "static", "servis_isci", "manifest"}
+ACIK_SAYFALAR = {"giris_yap", "saglik", "static", "servis_isci", "manifest", "gizlilik"}
 # Kod herkese acik depoda, bu yuzden sifrenin kendisi degil ozeti tutulur.
 # Render'da ADMIN_SIFRE tanimlanirsa o gecerli olur.
 ADMIN_OZET = (generate_password_hash(os.environ["ADMIN_SIFRE"]) if os.environ.get("ADMIN_SIFRE")
@@ -222,6 +222,11 @@ def ortak():
         return {"bugun": date.today().isoformat()}
     return {"bugun": date.today().isoformat(), "ayar": q.ayarlar(db()), "ikon": gorsel.ikon, "ust_menu": gorsel.UST_MENU, "hizli_ekle": gorsel.HIZLI_EKLE,
             "ana_kutular": gorsel.KUTULAR, "sayfa": gorsel.SAYFA.get(request.endpoint, gorsel.VARSAYILAN), "canli": CANLI, "hesap": g.get("hesap"), "odeme_uyari": _odeme_uyari()}
+
+
+@app.get("/gizlilik")
+def gizlilik():
+    return render_template("gizlilik.html")
 
 
 @app.get("/saglik")
