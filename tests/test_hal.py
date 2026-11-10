@@ -624,12 +624,17 @@ class AdminTest(unittest.TestCase):
         import demo_veri
         self.admin()
         self.hesap_ac("demo", sifre="demodemo", isletme="demo")
-        demo_veri.hazirla()
         k, _ = self.kullanici("demo", "demodemo")
+        k.post("/urunler", data={"ad": "mandalina", "birim": "kg"})
+        k.post("/urunler", data={"ad": "domates", "birim": "kg"})
+        demo_veri.hazirla()
         self.assertIn("Çınar Market", k.get("/musteriler").get_data(as_text=True))
         k.post("/urunler", data={"ad": "Benim urunum", "birim": "kg"})
         demo_veri.hazirla()
-        self.assertEqual(k.get("/urunler").get_data(as_text=True).count("Benim urunum"), 1)
+        sayfa = k.get("/urunler").get_data(as_text=True)
+        self.assertEqual(sayfa.count("Benim urunum"), 1)
+        self.assertIn("mandalina", sayfa)
+        self.assertNotIn(">Domates<", sayfa)
 
     def test_gecersiz_bolum_adi_reddedilir(self):
         for kotu in ("h_1;drop", "../x", "pg_catalog"):

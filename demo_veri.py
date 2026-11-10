@@ -24,7 +24,9 @@ def _doldur(db):
     bugun = date.today()
     db.execute("UPDATE ayar SET deger=? WHERE anahtar='firma_ad'", ("Demo Komisyonculuk",))
     db.execute("UPDATE ayar SET deger=? WHERE anahtar='firma_adres'", ("Mersin Hal Kompleksi, Demo Sokak No 1",))
-    urunler = [(db.execute("INSERT INTO urun(ad,birim) VALUES(?,?)", (ad, "kg")).lastrowid, a, b) for ad, a, b in URUNLER]
+    mevcut = {h.ad_anahtari(r["ad"]): r["id"] for r in db.execute("SELECT id, ad FROM urun").fetchall()}
+    urunler = [(mevcut.get(h.ad_anahtari(ad)) or db.execute("INSERT INTO urun(ad,birim) VALUES(?,?)", (ad, "kg")).lastrowid, a, b)
+               for ad, a, b in URUNLER]
     ureticiler = [(db.execute("INSERT INTO uretici(ad,telefon,komisyon_bp,acilis_kurus,acilis_tarih) VALUES(?,?,?,?,?)",
                               (ad, f"0532 {r.randint(100,999)} {r.randint(1000,9999)}", k, 0, bugun.isoformat())).lastrowid, k)
                   for ad, k in URETICILER]
@@ -88,7 +90,7 @@ def hazirla():
             if var["durum"] == "acik" and sema != "public":
                 db = vt.baglan(sema)
                 try:
-                    if not db.execute("SELECT COUNT(*) FROM urun").fetchone()[0]:
+                    if not db.execute("SELECT COUNT(*) FROM musteri").fetchone()[0]:
                         _doldur(db)
                         db.commit()
                 finally:
