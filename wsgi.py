@@ -12,4 +12,8 @@ from app import app  # noqa: E402
 
 vt.hazirla_hepsi(os.environ.get("APP_SIFRE"))
 
+import demo_veri  # noqa: E402
+
+demo_veri.hazirla()
+
 __all__ = ["app"]

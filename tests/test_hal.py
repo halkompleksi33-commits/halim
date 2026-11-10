@@ -605,6 +605,21 @@ class AdminTest(unittest.TestCase):
         c = self.c.post("/admin", data={"sifre": "deneme-yonetici"}, headers={"Origin": "http://kotu.example"})
         self.assertEqual(c.status_code, 403)
 
+    def test_demo_hesabi(self):
+        import demo_veri
+        demo_veri.hazirla()
+        demo_veri.hazirla()
+        k, cevap = self.kullanici("demo", "demodemo")
+        self.assertEqual(cevap.status_code, 302)
+        sayfa = k.get("/musteriler").get_data(as_text=True)
+        self.assertIn("Çınar Market", sayfa)
+        self.assertIn("Domates", k.get("/stok").get_data(as_text=True))
+        self.assertIn("Demo Komisyonculuk", k.get("/").get_data(as_text=True))
+        d = vt.baglan("yonetim")
+        self.assertEqual(d.execute("SELECT COUNT(*) FROM hesap WHERE kullanici='demo'").fetchone()[0], 1)
+        d.close()
+        self.assertIn("demodemo", self.c.get("/giris-yap").get_data(as_text=True))
+
     def test_gecersiz_bolum_adi_reddedilir(self):
         for kotu in ("h_1;drop", "../x", "pg_catalog"):
             with self.assertRaises(ValueError):

@@ -32,9 +32,21 @@
       <label>Kullanıcı adı<input name="kullanici" autocomplete="username" autocapitalize="none" required autofocus></label>
       <label>Şifre<input type="password" name="sifre" autocomplete="current-password" required></label>
       <button class="ana-dugme">Giriş yap</button>
+      <div class="demo-kutu">
+        <div><b>Denemek ister misin?</b><small>Kullanıcı adı: <code>demo</code> Şifre: <code>demodemo</code></small></div>
+        <button type="button" class="ikincil" id="demo-doldur">Demo ile gir</button>
+      </div>
       <p class="giris-alt">Hesabın yok mu? Program yöneticisiyle görüş.</p>
     </form>
   </section>
 </main>
+<script>
+document.getElementById("demo-doldur").addEventListener("click", function () {
+  var f = this.closest("form");
+  f.kullanici.value = "demo";
+  f.sifre.value = "demodemo";
+  f.submit();
+});
+</script>
 </body>
 </html>
